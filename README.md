@@ -41,19 +41,24 @@ the OTX key is used for AlienVault passive DNS.
 Each step can be excluded from the run dialog.
 
 1. **subdomains** — paste/import `subindex` output, paste arbitrary subdomains,
-   and optionally query crt.sh, subfinder, Wayback hostnames, OTX, HackerTarget,
-   and RapidDNS.
-2. **wayback (archive)** — **waymore** is the primary engine: it pulls URLs for
-   the *root domain* (gets every subdomain automatically) from Wayback Machine,
-   Common Crawl, OTX, URLScan, VirusTotal and Intelligence X. A per-host/per-year
-   archive.org CDX harvester (resume cursors, 5000-row batches) is the fallback
-   (`archive_engine` = `waymore` | `both` | `cdx`). Hosts found in archive URLs
-   are back-filled into the subdomain inventory.
+   and optionally query crt.sh (with a certspotter CT-log fallback when crt.sh
+   502s), subfinder, Wayback hostnames, OTX, HackerTarget, and RapidDNS.
+2. **wayback (archive)** — the dependable backbone is a domain-wide archive.org
+   CDX **resumeKey** harvest iterated *per year* (newest first, 50k-row pages,
+   resume cursors). It retries each page with progressively smaller pages via
+   proxy and never abandons a whole year on a transient reset, so it pulls the
+   full URL set (millions for a large target) where waymore's page-mode Wayback
+   gets throttled from a datacenter IP. **waymore** then ADDS the other passive
+   sources for the *root domain* (Common Crawl, OTX, URLScan, VirusTotal,
+   Intelligence X). `archive_engine` = `waymore` | `both` | `cdx`. Hosts found in
+   archive URLs are back-filled into the subdomain inventory.
 3. **files** — downloads live and archived copies of JS/JSON/config/map/juicy
    files, records each parent URL, analyzes contents, and recursively fetches
-   newly-discovered in-scope files. Archive **time-travel** uses one bulk,
-   digest-deduplicated CDX stream so every *unique* capture of a file is fetched
-   without one slow query per URL.
+   newly-discovered in-scope files. Archive **time-travel** uses the per-URL
+   archive timestamps captured during the harvest (plus a bulk digest-deduped
+   CDX capture map when available), so every file is fetched both live and from
+   the archive even when archive.org is rate-limiting. SPA/soft-404 HTML shells
+   served for dead `.js/.json/.xml` paths are detected and not mined for secrets.
 4. **params** — merges `params.txt` with query parameters mined from archive and
    JS links into `TARGET_parameters.txt` (UUID/hash/numeric value-tokens are
    filtered out so only real parameter names remain).
