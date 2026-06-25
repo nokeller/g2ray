@@ -58,8 +58,9 @@ def from_crtsh(root: str, client: HttpClient, log: LogFn) -> set[str]:
         _t.sleep(min(2 ** attempt, 8))
     if r is None or not r.ok or not r.text:
         log("warn", f"crt.sh returned status={getattr(r,'status',0)} "
-                    f"{getattr(getattr(r,'waf',None),'reason','')} (after retries)")
-        return out
+                    f"{getattr(getattr(r,'waf',None),'reason','')} (after retries) "
+                    f"-> falling back to certspotter")
+        return from_certspotter(root, client, log)
     data = None
     try:
         data = json.loads(r.text)
@@ -81,6 +82,43 @@ def from_crtsh(root: str, client: HttpClient, log: LogFn) -> set[str]:
                 h = h.strip().lstrip("*.").lower()
                 if util.in_scope(h, root):
                     out.add(h)
+    return out
+
+
+def from_certspotter(root: str, client: HttpClient, log: LogFn) -> set[str]:
+    """SSLMate certspotter CT log — reliable from datacenter IPs when crt.sh 502s.
+    Free tier works without a key (rate-limited); honours an optional key."""
+    out: set[str] = set()
+    from ..config import SETTINGS
+    headers = {}
+    key = getattr(SETTINGS, "certspotter_api_key", "") or ""
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    url = (f"https://api.certspotter.com/v1/issuances?domain={root}"
+           f"&include_subdomains=true&expand=dns_names")
+    import time as _t
+    r = None
+    for attempt in range(3):
+        r = client.get(url, timeout=45, headers=headers,
+                       force_proxy=(attempt >= 1), max_proxy_tries=1)
+        if r.ok and r.text.strip():
+            break
+        _t.sleep(min(2 ** attempt, 6))
+    if r is None or not r.ok or not r.text:
+        log("warn", f"certspotter status={getattr(r,'status',0)} (after retries)")
+        return out
+    try:
+        data = json.loads(r.text)
+        for row in data or []:
+            for h in (row.get("dns_names") or []):
+                h = h.strip().lstrip("*.").lower()
+                if util.in_scope(h, root):
+                    out.add(h)
+    except Exception:
+        for m in re.finditer(r'"([a-z0-9_*.-]+\.' + re.escape(root) + r')"', r.text, re.I):
+            h = m.group(1).strip().lstrip("*.").lower()
+            if util.in_scope(h, root):
+                out.add(h)
     return out
 
 
@@ -173,6 +211,7 @@ def from_rapiddns(root: str, client: HttpClient, log: LogFn) -> set[str]:
 
 SOURCES = {
     "crtsh": from_crtsh,
+    "certspotter": from_certspotter,
     "subfinder": lambda root, client, log: from_subfinder(root, log),
     "wayback": from_wayback,
     "otx": from_otx,
