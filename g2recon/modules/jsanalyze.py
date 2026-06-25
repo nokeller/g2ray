@@ -60,7 +60,7 @@ _SECRET_RULES: list[tuple[str, re.Pattern, str]] = [
     ("private_key",
      re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----"), "high"),
     ("cloudinary_url", re.compile(r"\bcloudinary://[0-9]+:[A-Za-z0-9\-_]+@[A-Za-z0-9\-_]+"), "high"),
-    ("basic_auth_url", re.compile(r"\b[a-z]{2,10}://[^/\s:@]{2,}:[^/\s:@]{2,}@[a-z0-9.-]+"), "high"),
+    ("basic_auth_url", re.compile(r"\b[a-z][a-z0-9+.\-]{1,9}://[A-Za-z0-9._~%+\-]{2,}:[A-Za-z0-9._~%+\-]{2,}@[a-z0-9.\-]+\.[a-z]{2,}\b"), "high"),
     ("s3_bucket", re.compile(r"\b[a-z0-9.-]{3,63}\.s3(?:[.-][a-z0-9-]+)?\.amazonaws\.com\b"), "low"),
     ("firebase_db", re.compile(r"\bhttps://[a-z0-9-]+\.firebaseio\.com\b"), "low"),
     ("authorization_bearer", re.compile(r"(?i)\bbearer\s+[a-z0-9\-_.=]{20,}"), "medium"),

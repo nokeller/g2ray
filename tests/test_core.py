@@ -382,3 +382,34 @@ def test_jsanalyze_filters_namespace_and_mime_noise():
     assert not jsanalyze._is_noise_link("/api/v1/users")
     assert not jsanalyze._is_noise_link("/smart_banner")
     assert not jsanalyze._is_noise_link("https://api.adjust.com/track")
+
+
+def test_basic_auth_url_ignores_jsonld_schema():
+    from g2recon.modules import jsanalyze
+    fp = '"sameAs":"https://schema.org","mainEntityOfPage":{"@type":"WebPage"}'
+    hits = [s for s in jsanalyze.find_secrets(fp) if s["rule"] == "basic_auth_url"]
+    assert hits == []
+    real = [s for s in jsanalyze.find_secrets("mongodb://admin:S3cr3t@db.example.com/x")
+            if s["rule"] == "basic_auth_url"]
+    assert len(real) == 1
+
+
+def test_is_html_shell_detects_soft404():
+    from g2recon.pipeline import _is_html_shell
+    assert _is_html_shell({"kind": "js", "content_type": "text/html; charset=utf-8",
+                           "text": "<!DOCTYPE html><html><head>"})
+    assert not _is_html_shell({"kind": "json", "content_type": "application/json",
+                               "text": '{"a":1}'})
+    assert not _is_html_shell({"kind": "js", "content_type": "application/javascript",
+                               "text": "window.x=1"})
+
+
+def test_order_diverse_spreads_hosts():
+    from g2recon.modules import reflection as refl
+    urls = ([f"https://app.adjust.com/a{i}?x=1" for i in range(50)] +
+            ["https://help.adjust.com/p?y=1", "https://dash.adjust.com/q?z=1"])
+    ordered = refl.order_diverse(refl.dedup_targets(urls))
+    from urllib.parse import urlsplit
+    first5 = {urlsplit(it["base"]).hostname for it in ordered[:5]}
+    # round-robin must surface non-app hosts early, not bury them after 50 app urls
+    assert "help.adjust.com" in first5 and "dash.adjust.com" in first5

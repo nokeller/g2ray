@@ -32,6 +32,20 @@ STEP_ORDER = ["subdomains", "wayback", "files", "params",
               "reflection", "openredirect", "livecheck", "fuzz"]
 
 
+def _is_html_shell(rec: dict) -> bool:
+    """True when a non-HTML data file (js/json/xml/map/config) actually returned
+    an HTML page — a SPA/soft-404 shell served for a dead path. Analyzing it
+    would mine the shell's inline secrets/links and misattribute them to the
+    requested file (a real source of false positives, e.g. one inline
+    accessToken showing up under hundreds of dead .xml/.json paths)."""
+    ct = (rec.get("content_type") or "").lower()
+    if "text/html" in ct or "application/xhtml" in ct:
+        return True
+    head = (rec.get("text") or "")[:300].lstrip().lower()
+    return head.startswith("<!doctype html") or head.startswith("<html") \
+        or "<head" in head[:60]
+
+
 class PipelineRunner:
     def __init__(self, target_id: int, job_id: int, options: dict,
                  stop_event: threading.Event):
@@ -305,12 +319,24 @@ class PipelineRunner:
         #    archive harvest had failed. Now every archived juicy file is fetched
         #    even if it never appeared as a standalone collapsed URL row.)
         targets: dict[str, dict] = {}        # cap_key -> {"url":..., "parent":...}
-        for (u,) in self.session.execute(
-                select(Url.url).where(Url.target_id == self.target_id,
-                                      Url.is_juicy == True).distinct()):  # noqa: E712
-            targets.setdefault(m_wb._cap_key(u), {"url": u, "parent": ""})
+        db_caps: dict[str, set] = {}         # cap_key -> {archive_ts,...} from harvest
+        # the CDX harvest already stored an archive_ts per juicy url, so archived
+        # time-travel downloads do NOT depend on the (rate-limit-prone) cap_map.
+        for (u, ts) in self.session.execute(
+                select(Url.url, Url.archive_ts).where(
+                    Url.target_id == self.target_id,
+                    Url.is_juicy == True)):  # noqa: E712
+            k = m_wb._cap_key(u)
+            ent = targets.get(k)
+            if ent is None:
+                targets[k] = {"url": u, "parent": ""}
+            elif u.startswith("https://") and not ent["url"].startswith("https://"):
+                ent["url"] = u
+            if ts:
+                db_caps.setdefault(k, set()).add(ts)
         for k, ent in cap_map.items():
             targets.setdefault(k, {"url": ent["url"], "parent": "archive"})
+            db_caps.setdefault(k, set()).update(ent.get("caps") or [])
 
         target_entries = list(targets.values())
         if max_files:
@@ -333,7 +359,12 @@ class PipelineRunner:
 
         def on_file(rec):
             analysis = None
-            if rec.get("ok") and rec.get("text") and rec.get("kind") in ("js", "json", "config", "map"):
+            analyzable = rec.get("kind") in ("js", "json", "config", "map")
+            # soft-404: a dead .js/.json/.xml path that returns the SPA HTML
+            # shell must NOT be mined (false secrets/links misattributed to it).
+            if analyzable and _is_html_shell(rec):
+                analyzable = False
+            if rec.get("ok") and rec.get("text") and analyzable:
                 analysis = jsanalyze.analyze(rec["text"], rec["url"], self.root)
             with self._lock:
                 store.add_file(self.session, self.target_id, rec)
@@ -359,8 +390,7 @@ class PipelineRunner:
                                   "parent_url": parent or util.host_of(u),
                                   "kind": kind, "depth": depth})
                 if "archived" in variants:
-                    capent = cap_map.get(m_wb._cap_key(u))
-                    caps = list(capent["caps"]) if capent else []
+                    caps = sorted(db_caps.get(m_wb._cap_key(u), ()), reverse=True)
                     if timetravel:
                         caps = caps[:max_caps] if max_caps else caps
                     else:
@@ -441,8 +471,8 @@ class PipelineRunner:
             select(Param.name).where(Param.target_id == self.target_id)).all()]
         max_params = int(self.options.get("reflection_max_params", 1024))
         scanner = m_refl.ReflectionScanner(self.client, max_params_per_url=max_params)
-        # bound by signatures
-        sigs = list(m_refl.dedup_targets(urls).values())[:max_urls]
+        # bound by signatures, spread across hosts (not just app.adjust.com)
+        sigs = m_refl.order_diverse(m_refl.dedup_targets(urls))[:max_urls]
         urls_capped = [s["url"] for s in sigs]
 
         def persist(rec):
@@ -467,7 +497,7 @@ class PipelineRunner:
         # bound by unique signatures so 130k param-urls don't explode into probes
         max_urls = int(self.options.get("openredirect_max_urls")
                        if self.options.get("openredirect_max_urls") is not None else 1500)
-        sigs = list(m_refl.dedup_targets(urls).values())
+        sigs = m_refl.order_diverse(m_refl.dedup_targets(urls))
         if max_urls and len(sigs) > max_urls:
             self.log("warn", "openredirect", f"capping {len(sigs)} -> {max_urls} url signatures")
             sigs = sigs[:max_urls]

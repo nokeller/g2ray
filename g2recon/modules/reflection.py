@@ -47,6 +47,29 @@ def dedup_targets(urls: list[str]) -> dict[str, dict]:
     return out
 
 
+def order_diverse(targets: dict[str, dict]) -> list[dict]:
+    """Round-robin signatures across hosts so a capped scan covers MANY
+    subdomains instead of just the busiest one. Without this, app.adjust.com
+    (millions of tracking urls) would monopolise the first N signatures and the
+    other subdomains would never be tested."""
+    from collections import defaultdict, deque
+    buckets: dict[str, deque] = defaultdict(deque)
+    for it in targets.values():
+        host = urlsplit(it["base"]).hostname or ""
+        buckets[host].append(it)
+    dqs = [dq for dq in buckets.values()]
+    order: list[dict] = []
+    while dqs:
+        nxt = []
+        for dq in dqs:
+            if dq:
+                order.append(dq.popleft())
+            if dq:
+                nxt.append(dq)
+        dqs = nxt
+    return order
+
+
 def _build_url(base: str, markers: dict[str, str]) -> str:
     p = urlsplit(base)
     return urlunparse((p.scheme, p.netloc, p.path, "", urlencode(markers), ""))
