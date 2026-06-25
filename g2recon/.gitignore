@@ -1,0 +1,11 @@
+# g2recon data + venv (never commit secrets or scan output)
+.venv/
+data/
+*.pyc
+__pycache__/
+*.db
+*.db-wal
+*.db-shm
+config.json
+INITIAL_PASSWORD.txt
+*.zip
