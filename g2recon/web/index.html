@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>g2recon</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="card">
+    <div class="logo">g2<span>recon</span></div>
+    <div class="muted" style="font-size:12px;margin-top:4px">bug-bounty reconnaissance console</div>
+    <form id="loginForm">
+      <div class="field"><label>User</label><input id="lu" autocomplete="username" value="admin"></div>
+      <div class="field"><label>Password</label><input id="lp" type="password" autocomplete="current-password"></div>
+      <div class="err-msg" id="lerr"></div>
+      <button class="btn primary" style="width:100%" type="submit">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <aside id="side">
+    <div class="head row spread">
+      <div class="logo" style="font-size:18px">g2<span>recon</span></div>
+      <button class="btn sm" id="newTargetBtn">+ Target</button>
+    </div>
+    <div id="tlist"></div>
+    <div class="foot row spread">
+      <span class="muted mono" id="whoami"></span>
+      <span class="row">
+        <button class="btn sm" id="settingsBtn">⚙</button>
+        <button class="btn sm" id="logoutBtn">Logout</button>
+      </span>
+    </div>
+  </aside>
+  <main id="main">
+    <div class="empty" id="emptyMain">Select or create a target to begin.</div>
+    <div id="targetView" class="hidden"></div>
+  </main>
+</div>
+
+<div id="modalRoot"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,72 +1,96 @@
-# G2Ray
+# g2recon
 
-> Only works in places where you can open GitHub Codespaces
+Self-hosted bug-bounty reconnaissance console for authorized targets. One target
+flows through scope-filtered subdomains, Wayback URL harvesting, JS/JSON/config
+download + recursive analysis, parameter mining, reflection/open-redirect checks,
+live probing, content discovery, exports, and an authenticated UI on port `64521`.
 
-## ⚠️ Important Notice
+> Authorized use only. Keep scans inside assets you own or are explicitly allowed
+> to test, and respect program rules, robots, rate limits, and local law.
 
-**Please read this before using this project:**
+## Quick start
 
-This project creates and runs a V2Ray proxy server. While the intention is for legitimate use, **we strongly recommend using a separate GitHub account (not your main account) when forking and running this project**. This is purely a precautionary measure, as there's a possibility it could trigger GitHub's automated security systems or account restrictions. Using an alternative account protects your main GitHub account in case of any unforeseen issues.
+```bash
+./install.sh --port 64521
+./run.sh
+# open http://localhost:64521
+```
 
-## Overview
+Server/systemd install:
 
-G2Ray is an automated setup for running a VLESS proxy through GitHub Codespaces. It provides a quick way to set up your own proxy server for accessing content from restricted regions.
+```bash
+sudo ./install.sh --service --port 64521 --user admin --password 'choose-a-strong-password'
+```
 
-## Setup
+Prefer an SSH tunnel or TLS reverse proxy instead of exposing plain HTTP:
 
-1. **Create or use a secondary GitHub account** (highly recommended)
-2. Fork the repository to your account
-3. Click the green **"Code"** button above
-4. Go to the **"Codespaces"** tab
-5. Click **"Create codespace on main"**
-6. Wait for the setup to complete (usually 2-5 minutes)
+```bash
+ssh -L 64521:127.0.0.1:64521 dev@your-server
+```
 
-## How to Use
+## Pipeline
 
-1. **Wait for Codespace initialization** - The setup process takes a few minutes. All dependencies and configurations will be installed automatically.
+Each step can be excluded from the run dialog.
 
-2. **Get your VLESS link** - Once ready, your VLESS proxy link will be printed directly in the terminal
+1. **subdomains** — paste/import `subindex` output, paste arbitrary subdomains,
+   and optionally query crt.sh, subfinder, Wayback hostnames, OTX, HackerTarget,
+   and RapidDNS.
+2. **wayback** — per-host/per-year archive.org CDX harvesting from 2020 to now by
+   default, with `showResumeKey=true` cursors and 5000-row batches.
+3. **files** — downloads live and archived copies of JS/JSON/config/map/juicy
+   files, records each parent URL, analyzes contents, and recursively fetches
+   newly-discovered in-scope files.
+4. **params** — merges `params.txt` with query parameters mined from archive and
+   JS links into `TARGET_parameters.txt`.
+5. **reflection** — x8-style batching: dedup by `scheme://host/path?param-set`,
+   unique canaries per parameter, and adaptive batch shrink on request-size
+   failures.
+6. **openredirect** — probes redirect-prone parameters with a canary URL and
+   records Location/meta-refresh/client-side redirect evidence.
+7. **livecheck** — records status, title, content type, length, and proxy use for
+   discovered paths.
+8. **fuzz** — ffuf-style extension-aware content discovery using the same HTTP
+   client, soft-404 baselining, and `-mc all` style recording of non-baseline
+   responses.
 
-   ![Terminal Screenshot](./docs/screenshot.png)
+## HTTP client and proxies
 
-3. **Import the link** - Copy the generated VLESS link and import it into:
-   - V2RayNG (Android)
-   - Clash Meta
-   - Or any other proxy application that supports VLESS
+All outbound requests use `curl_cffi` with browser-like impersonation when the
+installed version supports it. g2recon detects common WAF/rate-limit/block
+responses and records them. You may configure operator-provided proxies in the UI
+for retrying blocked requests; proxy credentials are stored only in
+`data/config.json` on your server and are masked in the API/UI.
 
-## Important Notes
+Supported proxy formats:
 
-### GitHub Codespaces Quota
-- GitHub provides **120 free compute hours per month** (per core)
-- For a 2-core Codespace: 120 ÷ 2 = 60 hours/month
-- **Stop your Codespace when not in use** to preserve your hours
-- You can always restart it later when needed
+```text
+host:port:user:pass
+scheme://user:pass@host:port
+```
 
-### Compatible Networks
-Tested on Shecan (free plan). If these IPs work for you, the proxy should be functional:
-- `63.141.252.203`
-- `50.7.5.83`
-- `94.130.50.12`
+## Exports
 
-If these IPs don't work, try different datacenters or ISPs from your region.
+Per-target data is under `data/targets/<target>/`:
 
-### Troubleshooting
-- If the Codespace fails to start, try creating a new one
-- Check that your GitHub account has Codespaces enabled
-- Ensure you have enough compute hours remaining for the month
-- For network issues, try switching proxy protocols in your client app
+```text
+<target>_subdomains.txt
+<target>_urls.txt
+<target>_parameters.txt
+<target>_reflected.txt
+<target>_openredirect.txt
+downloads/<live|archived>/<host>/<file>
+```
 
-## Support the Project
+Every UI tab supports search, paging, CSV export, authenticated raw file download,
+and a per-target ZIP export.
 
-If you find this project useful, consider supporting its development:
+## Useful commands
 
-- [Buy me a coffee ☕](https://www.buymeacoffee.com/amiremohamadi)
-- Ethereum: `0x5724c38100b2aE3d2547974f46D0f2f49eb2D152`
+```bash
+python -m pytest
+python -m g2recon              # serve UI/API
+G2RECON_DATA_DIR=/tmp/g2data python -m g2recon
+```
 
-## Disclaimer
-
-This tool is provided for educational and legitimate use only. Users are responsible for complying with their local laws and regulations regarding proxy usage. The author is not responsible for any misuse or consequences arising from the use of this tool.
-
-## License
-
-This project is open-source. Please check the LICENSE file for details.
+Runtime env overrides: `G2RECON_PORT`, `G2RECON_HOST`,
+`G2RECON_ADMIN_USER`, `G2RECON_ADMIN_PASSWORD`, `G2RECON_DATA_DIR`.
