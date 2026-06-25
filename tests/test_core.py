@@ -413,3 +413,9 @@ def test_order_diverse_spreads_hosts():
     first5 = {urlsplit(it["base"]).hostname for it in ordered[:5]}
     # round-robin must surface non-app hosts early, not bury them after 50 app urls
     assert "help.adjust.com" in first5 and "dash.adjust.com" in first5
+
+
+def test_fuzz_record_status_excludes_5xx():
+    from g2recon.modules import fuzz
+    assert 500 not in fuzz.RECORD_STATUS and 503 not in fuzz.RECORD_STATUS
+    assert 200 in fuzz.RECORD_STATUS and 403 in fuzz.RECORD_STATUS

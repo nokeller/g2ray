@@ -7,12 +7,15 @@ import hashlib
 import hmac
 import io
 import json
+import os
+import tempfile
 import time
 import zipfile
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, UploadFile, File, Form, Body
+from starlette.background import BackgroundTask
 from fastapi.responses import (JSONResponse, HTMLResponse, FileResponse,
                                StreamingResponse, PlainTextResponse, RedirectResponse)
 from fastapi.staticfiles import StaticFiles
@@ -438,17 +441,28 @@ async def export_csv(tid: int, kind: str, user: str = Depends(require_auth)):
     model = _EXPORT_MODELS.get(kind)
     if not model:
         raise HTTPException(404, "unknown export")
-    s = get_session()
-    rows = s.execute(select(model).where(model.target_id == tid)).scalars().all()
     cols = [c.name for c in model.__table__.columns]
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(cols)
-    for r in rows:
-        w.writerow([getattr(r, c) for c in cols])
-    s.close()
-    buf.seek(0)
-    return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv",
+
+    def gen():
+        # stream row-by-row: the urls export is millions of rows / hundreds of MB,
+        # so buffering the whole CSV in memory OOMs the server and stalls clients.
+        s = get_session()
+        try:
+            buf = io.StringIO()
+            w = csv.writer(buf)
+            w.writerow(cols)
+            yield buf.getvalue()
+            result = s.execute(
+                select(model).where(model.target_id == tid)
+                .execution_options(stream_results=True, yield_per=2000))
+            for r in result.scalars():
+                buf.seek(0); buf.truncate(0)
+                w.writerow([getattr(r, c) for c in cols])
+                yield buf.getvalue()
+        finally:
+            s.close()
+
+    return StreamingResponse(gen(), media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{kind}_{tid}.csv"'})
 
 
@@ -485,14 +499,20 @@ async def target_zip(tid: int, user: str = Depends(require_auth)):
     if not t:
         raise HTTPException(404, "not found")
     base = Path(SETTINGS.data_dir) / "targets" / t.slug
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in base.rglob("*"):
-            if f.is_file():
-                z.write(f, f.relative_to(base))
-    buf.seek(0)
-    return StreamingResponse(iter([buf.getvalue()]), media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{t.slug}_recon.zip"'})
+    # build to a temp FILE (not memory): a target dir can be many GB (491MB+
+    # urls.txt plus thousands of downloaded files), which would OOM if buffered.
+    tmp = tempfile.NamedTemporaryFile(prefix=f"{t.slug}_recon_", suffix=".zip",
+                                      delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as z:
+        if base.exists():
+            for f in base.rglob("*"):
+                if f.is_file():
+                    z.write(f, f.relative_to(base))
+    return FileResponse(tmp_path, media_type="application/zip",
+        filename=f"{t.slug}_recon.zip",
+        background=BackgroundTask(lambda: os.path.exists(tmp_path) and os.remove(tmp_path)))
 
 
 # --------------------------------------------------------------------------
