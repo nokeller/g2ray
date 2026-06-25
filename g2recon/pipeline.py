@@ -168,7 +168,7 @@ class PipelineRunner:
         kw = self.options.get("waymore_keywords_only") or None
         # route waymore through a proxy so Common Crawl (unreachable from the VPS
         # direct IP) resolves; exclude wayback (covered by the CDX harvester).
-        from ..http_client import normalize_proxy
+        from .http_client import normalize_proxy
         proxy = None
         use_proxy = self.options.get("waymore_use_proxy")
         use_proxy = True if use_proxy is None else bool(use_proxy)
@@ -288,12 +288,15 @@ class PipelineRunner:
                     "config", "cfg", "conf", "ini", "txt", "bak", "old", "csv",
                     "wsdl", "wadl", "properties", "toml"]
             self.log("info", "files", "building archive capture map (bulk CDX)…")
+            jpfx = f"files:{self.target_id}:"
             cap_map = m_wb.juicy_capture_map(
                 self.client, self.root, exts=exts,
                 max_caps_per_url=(max_caps or 0) if timetravel else 1,
                 from_year=from_year, to_year=to_year,
                 log=lambda lvl, m: self.log(lvl, "files", m),
-                should_stop=self.should_stop)
+                should_stop=self.should_stop,
+                get_cursor=lambda k: self._cursor_get(jpfx + k),
+                set_cursor=lambda k, v: self._cursor_set(jpfx + k, v))
 
         # 2) download universe = juicy urls in the DB  UNION  cap_map files.
         #    (previous bug: cap_map was built but never used as a download
