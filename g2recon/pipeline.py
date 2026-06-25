@@ -125,26 +125,35 @@ class PipelineRunner:
         self.log("info", "subdomains", f"{len(hosts)} unique subdomains (+{n} new in db)")
 
     def _step_wayback(self):
-        """Archive harvesting. Primary engine is waymore (Wayback + Common Crawl
-        + OTX + URLScan + VirusTotal + IntelX); falls back to per-host CDX."""
-        engine = (self.options.get("archive_engine") or SETTINGS.archive_engine).lower()
-        from_year = int(self.options.get("wayback_from_year") or SETTINGS.wayback_from_year)
-        to_year = int(self.options.get("wayback_to_year") or SETTINGS.wayback_to_year) \
-            or dt.datetime.now(dt.timezone.utc).year
+        """Archive harvesting.
 
+        The dependable backbone is a domain-wide CDX *resumeKey* harvest: it
+        works from datacenter IPs at ~50k urls/page, whereas waymore's page-mode
+        wayback 503s on the same IP (that was the real cause of the tiny URL
+        counts). waymore then ADDS the non-wayback passive sources (Common
+        Crawl, OTX, URLScan, VirusTotal, IntelX); Common Crawl is routed through
+        the operator proxy because the VPS direct IP cannot reach it.
+
+        engine: both (default) = CDX + waymore extras; cdx = CDX only;
+        waymore = CDX backbone + waymore extras."""
+        engine = (self.options.get("archive_engine") or SETTINGS.archive_engine).lower()
+        fy_opt = self.options.get("wayback_from_year")
+        from_year = int(fy_opt if fy_opt is not None else SETTINGS.wayback_from_year)
+        to_year = int(self.options.get("wayback_to_year") or SETTINGS.wayback_to_year) or 0
+
+        # 1) CDX domain-wide resumeKey harvest — reliable, gets every url
+        self._run_cdx_domain(from_year, to_year)
+
+        # 2) waymore for the other passive sources (its own wayback excluded)
         if engine in ("waymore", "both"):
             if m_waymore.have_waymore():
                 self._run_waymore(from_year, to_year)
             else:
-                self.log("warn", "wayback", "waymore not installed; falling back to CDX")
-                engine = "cdx"
-        if engine in ("cdx", "both"):
-            self._run_cdx(from_year, to_year)
+                self.log("warn", "wayback", "waymore not installed; CDX-only archive")
 
         self._backfill_subdomains()
-        urls = self._all_urls()
-        (self.dir / f"{self.slug}_urls.txt").write_text("\n".join(sorted(set(urls))) + "\n")
-        self.log("info", "wayback", f"{len(urls)} total urls collected")
+        n = self._write_urls_file()
+        self.log("info", "wayback", f"{n} total urls collected")
 
     def _run_waymore(self, from_year: int, to_year: int) -> int:
         cfg = m_waymore.write_config(
@@ -157,17 +166,28 @@ class PipelineRunner:
         from_date = f"{from_year}0101000000" if from_year else ""
         to_date = f"{to_year}1231235959" if to_year else ""
         kw = self.options.get("waymore_keywords_only") or None
+        # route waymore through a proxy so Common Crawl (unreachable from the VPS
+        # direct IP) resolves; exclude wayback (covered by the CDX harvester).
+        from ..http_client import normalize_proxy
+        proxy = None
+        use_proxy = self.options.get("waymore_use_proxy")
+        use_proxy = True if use_proxy is None else bool(use_proxy)
+        if use_proxy and SETTINGS.proxies:
+            proxy = normalize_proxy(SETTINGS.proxies[0])
+        run_to = int(self.options.get("waymore_run_timeout")
+                     if self.options.get("waymore_run_timeout") is not None
+                     else SETTINGS.waymore_run_timeout) or 2400
         urls = m_waymore.run(
             self.root, out, cfg,
             log=lambda lvl, m: self.log(lvl, "wayback", m),
             should_stop=self.should_stop,
             from_date=from_date, to_date=to_date, keywords_only=kw,
-            run_timeout=int(self.options.get("waymore_run_timeout")
-                            or SETTINGS.waymore_run_timeout),
+            run_timeout=run_to,
             limit_requests=int(self.options.get("waymore_limit_requests")
                                or SETTINGS.waymore_limit_requests),
             processes=int(self.options.get("waymore_processes")
-                          or SETTINGS.waymore_processes))
+                          or SETTINGS.waymore_processes),
+            exclude_providers=["wayback"], proxy=proxy)
         payload = [{
             "url": u, "host": util.host_of(u), "source": "waymore",
             "mime": "", "archive_ts": "",
@@ -182,17 +202,20 @@ class PipelineRunner:
         self.log("info", "wayback", f"waymore stored {len(payload)} urls")
         return len(payload)
 
-    def _run_cdx(self, from_year: int, to_year: int):
-        hosts = self._in_scope_hosts()
-        years = m_wb.year_range(from_year, to_year)
-        batch = int(self.options.get("wayback_batch_size") or SETTINGS.wayback_batch_size)
-        self.log("info", "wayback", f"CDX: {len(hosts)} hosts x years "
-                                    f"{years[0]}..{years[-1]} batch={batch}")
+    def _run_cdx_domain(self, from_year: int, to_year: int):
+        batch = int(self.options.get("wayback_batch_size") or SETTINGS.wayback_batch_size or 50000)
+        if batch < 1000:
+            batch = 50000
+        max_rows = int(self.options.get("wayback_max_urls") or 0)
+        self.log("info", "wayback", f"cdx-domain: harvesting *.{self.root} "
+                 f"(years {from_year or 'all'}..{to_year or 'now'}, batch={batch}, "
+                 f"max_rows={max_rows or 'all'})")
+        pfx = f"wb:{self.target_id}:"
 
         def on_rows(rows):
             payload = []
             for r in rows:
-                u = r["original"]
+                u = r.get("original")
                 if not u:
                     continue
                 payload.append({
@@ -200,23 +223,34 @@ class PipelineRunner:
                     "mime": r.get("mimetype", ""), "archive_ts": r.get("timestamp", ""),
                     "is_juicy": util.is_juicy_url(u), "has_params": util.has_params(u),
                 })
-            with self._lock:
-                store.add_urls(self.session, self.target_id, payload)
+            for i in range(0, len(payload), 5000):
+                if self.should_stop():
+                    break
+                with self._lock:
+                    store.add_urls(self.session, self.target_id, payload[i:i + 5000])
 
-        import concurrent.futures as cf
-        workers = int(self.options.get("wayback_workers") or 3)
+        total = m_wb.harvest_domain(
+            self.client, self.root, on_rows=on_rows,
+            get_cursor=lambda k: self._cursor_get(pfx + k),
+            set_cursor=lambda k, v: self._cursor_set(pfx + k, v),
+            log=lambda lvl, m: self.log(lvl, "wayback", m),
+            should_stop=self.should_stop,
+            from_year=from_year, to_year=to_year, batch=batch, max_rows=max_rows)
+        self.log("info", "wayback", f"cdx-domain: {total} url rows streamed")
 
-        def do_host(host):
-            pfx = f"wb:{self.target_id}:{host}:"
-            return m_wb.harvest_host(
-                self.client, host, years=years, batch=batch, on_rows=on_rows,
-                get_cursor=lambda k: self._cursor_get(pfx + k),
-                set_cursor=lambda k, v: self._cursor_set(pfx + k, v),
-                log=lambda lvl, m: self.log(lvl, "wayback", m),
-                should_stop=self.should_stop)
-
-        with cf.ThreadPoolExecutor(max_workers=workers) as ex:
-            list(ex.map(do_host, hosts))
+    def _write_urls_file(self) -> int:
+        out = self.dir / f"{self.slug}_urls.txt"
+        seen: set[str] = set()
+        n = 0
+        with out.open("w") as fh:
+            for (u,) in self.session.execute(
+                    select(Url.url).where(Url.target_id == self.target_id)
+                    ).yield_per(20000):
+                if u and u not in seen:
+                    seen.add(u)
+                    fh.write(u + "\n")
+                    n += 1
+        return n
 
     def _backfill_subdomains(self):
         """Add in-scope hosts discovered in archive URLs to the subdomain table."""
@@ -243,21 +277,12 @@ class PipelineRunner:
                        else SETTINGS.max_snapshots_per_url)
         from_year = int(self.options.get("wayback_from_year") or 0)
         to_year = int(self.options.get("wayback_to_year") or 0)
+        dl_batch = int(self.options.get("download_batch") or 2000)
 
-        # distinct juicy urls (waymore gives no per-capture ts; we time-travel here)
-        rows = self.session.execute(
-            select(Url.url).where(Url.target_id == self.target_id,
-                                  Url.is_juicy == True).distinct()).all()  # noqa: E712
-        juicy_urls = [r[0] for r in rows]
-        if max_files:
-            juicy_urls = juicy_urls[:max_files]
-        self.log("info", "files", f"{len(juicy_urls)} juicy urls "
-                 f"(variants={variants}, depth={max_depth}, timetravel={timetravel}, "
-                 f"max_caps={max_caps})")
-
-        # one bulk CDX stream -> {host+path: [timestamps]} (archive-friendly,
-        # de-duplicated by content digest) instead of one query per file.
-        cap_map: dict[str, list[str]] = {}
+        # 1) bulk archive capture map for EVERY juicy file of the whole domain
+        #    (one resumeKey CDX stream, digest-deduped) ->
+        #    {host+path: {"url": original, "caps": [ts...]}}
+        cap_map: dict[str, dict] = {}
         if "archived" in variants:
             exts = ["js", "mjs", "cjs", "json", "map", "xml", "yml", "yaml", "env",
                     "config", "cfg", "conf", "ini", "txt", "bak", "old", "csv",
@@ -270,8 +295,36 @@ class PipelineRunner:
                 log=lambda lvl, m: self.log(lvl, "files", m),
                 should_stop=self.should_stop)
 
+        # 2) download universe = juicy urls in the DB  UNION  cap_map files.
+        #    (previous bug: cap_map was built but never used as a download
+        #    target, so only DB juicy urls were fetched — which was ~1 when the
+        #    archive harvest had failed. Now every archived juicy file is fetched
+        #    even if it never appeared as a standalone collapsed URL row.)
+        targets: dict[str, dict] = {}        # cap_key -> {"url":..., "parent":...}
+        for (u,) in self.session.execute(
+                select(Url.url).where(Url.target_id == self.target_id,
+                                      Url.is_juicy == True).distinct()):  # noqa: E712
+            targets.setdefault(m_wb._cap_key(u), {"url": u, "parent": ""})
+        for k, ent in cap_map.items():
+            targets.setdefault(k, {"url": ent["url"], "parent": "archive"})
+
+        target_entries = list(targets.values())
+        if max_files:
+            target_entries = target_entries[:max_files]
+        self.log("info", "files", f"{len(target_entries)} unique juicy files to fetch "
+                 f"(db-juicy ∪ archive-cdx; variants={variants}, depth={max_depth}, "
+                 f"timetravel={timetravel}, max_caps={max_caps})")
+
+        # 3) resume: skip (url,variant,ts) already downloaded ok in a prior run
+        already: set[tuple] = set()
+        for (u, v, ts) in self.session.execute(
+                select(FileRecord.url, FileRecord.variant, FileRecord.archive_ts)
+                .where(FileRecord.target_id == self.target_id,
+                       FileRecord.size > 0)):
+            already.add((u, v, ts or ""))
+
         dl = m_dl.Downloader(self.dir, self.client)
-        seen_urls: set[str] = set()
+        seen_keys: set[str] = set()
         new_parent: dict[str, str] = {}
 
         def on_file(rec):
@@ -291,45 +344,66 @@ class PipelineRunner:
                     for nf in analysis["new_files"]:
                         new_parent.setdefault(nf, rec["url"])
 
-        def make_items(urls, depth, parent_map):
+        def make_items(entries, depth):
             items = []
-            for u in urls:
+            for ent in entries:
+                u = ent["url"]
+                parent = ent.get("parent", "")
                 kind = util.kind_for_url(u)
-                parent = (parent_map or {}).get(u, "")
-                if "live" in variants:
+                if "live" in variants and (u, "live", "") not in already:
                     items.append({"url": u, "variant": "live",
                                   "parent_url": parent or util.host_of(u),
                                   "kind": kind, "depth": depth})
                 if "archived" in variants:
-                    caps = cap_map.get(m_wb._cap_key(u), [])
+                    capent = cap_map.get(m_wb._cap_key(u))
+                    caps = list(capent["caps"]) if capent else []
                     if timetravel:
                         caps = caps[:max_caps] if max_caps else caps
                     else:
                         caps = caps[:1]
                     for ts in caps:
+                        if (u, "archived", ts) in already:
+                            continue
                         items.append({"url": u, "variant": "archived", "archive_ts": ts,
                                       "parent_url": parent or "archive",
                                       "kind": kind, "depth": depth})
             return items
 
-        items = make_items(juicy_urls, 0, None)
+        entries = target_entries
         depth = 0
-        while items and depth <= max_depth:
+        total_dl = 0
+        while entries and depth <= max_depth:
             if self.should_stop():
                 return
-            self.log("info", "files", f"depth {depth}: downloading {len(items)} items")
-            dl.download_many(items, on_file,
-                             lambda lvl, m: self.log(lvl, "files", m), self.should_stop)
-            for it in items:
-                seen_urls.add(it["url"])
-            new_urls = [u for u in new_parent.keys() if u not in seen_urls]
-            new_parent_local = dict(new_parent)
+            items = make_items(entries, depth)
+            self.log("info", "files", f"depth {depth}: {len(items)} downloads "
+                                      f"queued from {len(entries)} files")
+            for i in range(0, len(items), dl_batch):
+                if self.should_stop():
+                    return
+                chunk = items[i:i + dl_batch]
+                dl.download_many(chunk, on_file,
+                                 lambda lvl, m: self.log(lvl, "files", m), self.should_stop)
+                total_dl += len(chunk)
+                if len(items) > dl_batch:
+                    self.log("info", "files",
+                             f"depth {depth}: {min(i + dl_batch, len(items))}/{len(items)}")
+            for ent in entries:
+                seen_keys.add(m_wb._cap_key(ent["url"]))
+            # recursion: newly-discovered in-scope juicy files
+            new_entries = []
+            for nf, par in list(new_parent.items()):
+                k = m_wb._cap_key(nf)
+                if k not in seen_keys:
+                    new_entries.append({"url": nf, "parent": par})
+                    seen_keys.add(k)
             new_parent.clear()
-            if max_files and len(seen_urls) >= max_files:
+            if max_files and len(seen_keys) >= max_files:
                 break
             depth += 1
-            items = make_items(new_urls, depth, new_parent_local) if new_urls else []
-        self.log("info", "files", f"downloaded/analyzed {len(seen_urls)} unique file urls")
+            entries = new_entries
+        self.log("info", "files", f"downloaded/analyzed {len(seen_keys)} unique files "
+                                  f"({total_dl} fetch ops incl. time-travel)")
 
     def _step_params(self):
         urls = self._all_urls(only_params=True)

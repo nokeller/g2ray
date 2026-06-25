@@ -306,16 +306,17 @@ function runModal(){
   const paste=el("textarea",{rows:4,placeholder:"paste subdomains (one per line) — skips needing crt.sh if you want"});
   const subindex=el("textarea",{rows:3,placeholder:"paste subindex output here (optional)"});
   const subindexFile=el("input",{type:"file"});
-  const fromY=el("input",{type:"number",value:2020,style:"width:90px"});
+  const fromY=el("input",{type:"number",placeholder:"all",style:"width:90px"});
   const toY=el("input",{type:"number",placeholder:"now",style:"width:90px"});
-  const batch=el("input",{type:"number",value:5000,style:"width:100px"});
+  const batch=el("input",{type:"number",value:50000,style:"width:100px"});
+  const wbMax=el("input",{type:"number",value:0,style:"width:100px",title:"max archive urls to harvest, 0=all"});
   const depth=el("input",{type:"number",value:3,style:"width:70px"});
   const vlive=el("input",{type:"checkbox",checked:"checked"}), varch=el("input",{type:"checkbox",checked:"checked"});
   const reflUrls=el("input",{type:"number",value:400,style:"width:90px"});
   const reflParams=el("input",{type:"number",value:1024,style:"width:90px"});
   const paramsFile=el("input",{type:"file"});
   // archive engine + scale caps
-  const engineSel=el("select",{},...["waymore","both","cdx"].map(o=>el("option",{value:o},o)));
+  const engineSel=el("select",{},...["both","cdx","waymore"].map(o=>el("option",{value:o},o)));
   const wmTimeout=el("input",{type:"number",value:0,style:"width:90px",title:"waymore overall timeout (s), 0=none"});
   const wmLimit=el("input",{type:"number",value:0,style:"width:90px",title:"waymore per-source request limit, 0=none"});
   const maxFiles=el("input",{type:"number",value:0,style:"width:90px",title:"max juicy files to download, 0=all"});
@@ -341,6 +342,7 @@ function runModal(){
     el("div",{class:"row wrap",style:"gap:14px"},
       el("label",{class:"row"},"Wayback years",fromY,"→",toY),
       el("label",{class:"row"},"Batch",batch),
+      el("label",{class:"row"},"max urls",wbMax),
       el("label",{class:"row"},"Recursion depth",depth)),
     el("div",{class:"row wrap",style:"gap:14px;margin-top:8px"},
       el("label",{class:"row"},vlive,"download live"),
@@ -370,8 +372,9 @@ function runModal(){
           paste_subdomains:paste.value, subindex_output:subindex.value,
           archive_engine:engineSel.value,
           waymore_run_timeout:+wmTimeout.value||0, waymore_limit_requests:+wmLimit.value||0,
-          wayback_from_year:+fromY.value||2020, wayback_to_year:+toY.value||0,
-          wayback_batch_size:+batch.value||5000, max_recursion_depth:+depth.value||3,
+          wayback_from_year:+fromY.value||0, wayback_to_year:+toY.value||0,
+          wayback_batch_size:+batch.value||50000, wayback_max_urls:+wbMax.value||0,
+          max_recursion_depth:+depth.value||3,
           download_variants:variants, max_files:+maxFiles.value||0,
           max_snapshots_per_url:+maxSnaps.value||25,
           reflection_max_urls:+reflUrls.value||400, reflection_max_params:+reflParams.value||1024,

@@ -155,8 +155,8 @@ async def update_settings(body: dict = Body(...), user: str = Depends(require_au
                 "use_proxy_only_on_block", "block_cooldown_sec",
                 "archive_engine", "waymore_processes", "waymore_req_timeout",
                 "waymore_run_timeout", "waymore_limit_requests",
-                "waymore_include_subs", "archive_timetravel",
-                "max_snapshots_per_url"):
+                "waymore_include_subs", "waymore_use_proxy", "archive_timetravel",
+                "max_snapshots_per_url", "wayback_max_urls", "download_batch"):
         if key in body:
             setattr(SETTINGS, key, body[key])
             changed = True

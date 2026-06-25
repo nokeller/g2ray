@@ -65,19 +65,22 @@ class Settings:
     intelx_api_key: str = ""
 
     # archive harvesting
-    archive_engine: str = "waymore"        # waymore | cdx | both
+    archive_engine: str = "both"           # both | cdx | waymore
     waymore_processes: int = 5             # waymore -p (must be 1..5)
     waymore_req_timeout: int = 15          # waymore -t (per request)
-    waymore_run_timeout: int = 0           # overall wall-clock cap (0 == none)
+    waymore_run_timeout: int = 0           # overall wall-clock cap (0 == 2400s default)
     waymore_limit_requests: int = 0        # waymore -l (0 == no limit)
     waymore_include_subs: bool = True      # pass root only (gets all subs); False adds -n
+    waymore_use_proxy: bool = True         # route waymore via proxy (Common Crawl needs it)
     archive_timetravel: bool = True        # download every unique-digest archived capture
     max_snapshots_per_url: int = 25        # cap captures/file (0 == all unique digests)
 
-    # wayback (cdx fallback)
-    wayback_batch_size: int = 5000
-    wayback_from_year: int = 2020
+    # wayback (domain-wide CDX resumeKey harvest = the reliable archive backbone)
+    wayback_batch_size: int = 50000        # urls per CDX page (resumeKey paginated)
+    wayback_from_year: int = 0             # 0 == all time (max coverage)
     wayback_to_year: int = 0               # 0 == current year
+    wayback_max_urls: int = 0              # 0 == harvest every url (no cap)
+    download_batch: int = 2000             # file downloads per scheduling batch
 
     # concurrency
     download_workers: int = 8

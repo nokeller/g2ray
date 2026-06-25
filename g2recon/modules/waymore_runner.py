@@ -100,6 +100,12 @@ def _sanitize(line: str, secrets: Iterable[str]) -> str:
     return line
 
 
+_EXCLUDE_FLAG = {
+    "wayback": "-xwm", "commoncrawl": "-xcc", "otx": "-xav", "alienvault": "-xav",
+    "urlscan": "-xus", "virustotal": "-xvt", "intelx": "-xix", "ghostarchive": "-xga",
+}
+
+
 def run(root: str, out_file: Path, config_path: Path, *,
         log: LogFn, should_stop: Callable[[], bool],
         mode: str = "U",
@@ -111,11 +117,20 @@ def run(root: str, out_file: Path, config_path: Path, *,
         keywords_only: Optional[str] = None,
         from_date: str = "", to_date: str = "",
         providers: Optional[list[str]] = None,
+        exclude_providers: Optional[list[str]] = None,
+        proxy: Optional[str] = None,
+        retries: int = 2,
         extra_args: Optional[list[str]] = None) -> list[str]:
     """Run waymore (mode U) and return the harvested URL list.
 
     Cancellable via ``should_stop`` and bounded by ``run_timeout`` seconds
     (0 == no cap). Partial output is still returned/parsed.
+
+    ``exclude_providers`` maps to waymore's -x* flags (we exclude ``wayback`` by
+    default because archive.org page-mode 503s datacenter IPs; the reliable CDX
+    resumeKey harvester covers Wayback instead). ``proxy`` (scheme://user:pass@
+    host:port) is exported as HTTP(S)_PROXY so providers unreachable from the
+    VPS direct IP — notably Common Crawl — succeed through the operator proxy.
     """
     out_file = Path(out_file)
     out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -132,6 +147,7 @@ def run(root: str, out_file: Path, config_path: Path, *,
         "-i", root, "-mode", mode, "-c", str(config_path),
         "-oU", str(out_file), "-ow",
         "-p", str(procs), "-t", str(max(5, req_timeout)),
+        "-r", str(max(1, retries)),
     ]
     if not include_subs:
         cmd.append("-n")
@@ -145,15 +161,24 @@ def run(root: str, out_file: Path, config_path: Path, *,
         cmd += ["-to", to_date]
     if providers:
         cmd += ["--providers", ",".join(providers)]
+    else:
+        for p in (exclude_providers or []):
+            flag = _EXCLUDE_FLAG.get(p.lower())
+            if flag and flag not in cmd:
+                cmd.append(flag)
     if extra_args:
         cmd += list(extra_args)
 
     secrets = [SETTINGS.urlscan_api_key, SETTINGS.virustotal_api_key,
                SETTINGS.intelx_api_key]
-    log("info", f"waymore: harvesting {root} (mode {mode}, p={procs})")
+    log("info", f"waymore: harvesting {root} (mode {mode}, p={procs}"
+                f"{', via proxy' if proxy else ''})")
 
     env = dict(os.environ)
     env["PYTHONUNBUFFERED"] = "1"
+    if proxy:
+        for var in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+            env[var] = proxy
     try:
         proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

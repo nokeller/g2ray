@@ -266,7 +266,8 @@ def test_juicy_capture_map_parses_and_dedups_by_digest(monkeypatch):
                                     batch=10, max_caps_per_url=10)
     key = wayback._cap_key("https://cdn.adjust.com/app.js")
     # DIG1 dedups (2 captures -> 1), DIG2 kept -> 2 unique captures, newest first
-    assert cap[key] == ["20240101000000", "20220101000000"]
+    assert cap[key]["caps"] == ["20240101000000", "20220101000000"]
+    assert cap[key]["url"] == "https://cdn.adjust.com/app.js"
 
 
 def test_archive_url_and_file_records_preserve_multiple_timestamps():
@@ -314,3 +315,47 @@ def test_archive_url_and_file_records_preserve_multiple_timestamps():
         })
     assert session.query(FileRecord).filter_by(target_id=target.id).count() == 2
     session.close()
+
+
+def test_harvest_domain_paginates_via_resumekey():
+    """Domain-wide CDX harvest follows resumeKey across pages and marks done."""
+    page1 = ('[["original","timestamp","statuscode","mimetype","digest"],'
+             '["https://adjust.com/a","20200101000000","200","text/html","D1"],'
+             '["https://app.adjust.com/b","20210101000000","200","text/html","D2"],'
+             '[],["RK1"]]')
+    page2 = ('[["original","timestamp","statuscode","mimetype","digest"],'
+             '["https://adjust.com/c","20220101000000","200","text/html","D3"]]')
+
+    class Client:
+        def get(self, url, **_):
+            return FakeResp(200, text=(page2 if "resumeKey=RK1" in url else page1))
+
+    cursors = {}
+    collected = []
+    total = wayback.harvest_domain(
+        Client(), "adjust.com",
+        on_rows=lambda rows: collected.extend(r["original"] for r in rows),
+        get_cursor=lambda k: cursors.get(k),
+        set_cursor=lambda k, v: cursors.__setitem__(k, v),
+        log=lambda *a: None, should_stop=lambda: False)
+    assert total == 3
+    assert collected == ["https://adjust.com/a", "https://app.adjust.com/b",
+                         "https://adjust.com/c"]
+    assert cursors.get("dom:done") == "1"
+
+
+def test_juicy_capture_map_keeps_representative_url():
+    """cap_map exposes a downloadable original URL per file (the files-step fix)."""
+    page = ('[["original","timestamp","digest","statuscode","mimetype"],'
+            '["http://cdn.adjust.com/x.js","20200101000000","D1","200","application/javascript"],'
+            '["https://cdn.adjust.com/x.js","20240101000000","D2","200","application/javascript"]]')
+
+    class Client:
+        def get(self, url, **_):
+            return FakeResp(200, text=page)
+
+    cap = wayback.juicy_capture_map(Client(), "adjust.com", exts=["js"],
+                                    batch=10, max_caps_per_url=10)
+    key = wayback._cap_key("https://cdn.adjust.com/x.js")
+    assert cap[key]["url"].startswith("https://")   # prefers https original
+    assert len(cap[key]["caps"]) == 2

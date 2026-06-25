@@ -48,9 +48,17 @@ def from_subindex_import(text: str, root: str) -> set[str]:
 def from_crtsh(root: str, client: HttpClient, log: LogFn) -> set[str]:
     out: set[str] = set()
     url = f"https://crt.sh/?q=%25.{root}&output=json"
-    r = client.get(url, timeout=40)
-    if not r.ok or not r.text:
-        log("warn", f"crt.sh returned status={r.status} {r.waf.reason}")
+    import time as _t
+    r = None
+    for attempt in range(4):
+        # crt.sh frequently 502/503s; retry with backoff and escalate to proxy
+        r = client.get(url, timeout=60, force_proxy=(attempt >= 2))
+        if r.ok and r.text.strip():
+            break
+        _t.sleep(min(2 ** attempt, 8))
+    if r is None or not r.ok or not r.text:
+        log("warn", f"crt.sh returned status={getattr(r,'status',0)} "
+                    f"{getattr(getattr(r,'waf',None),'reason','')} (after retries)")
         return out
     data = None
     try:

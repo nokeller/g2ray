@@ -150,20 +150,25 @@ def _cap_key(url: str) -> str:
 
 
 def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
-                      batch: int = 5000, max_caps_per_url: int = 25,
+                      batch: int = 20000, max_caps_per_url: int = 25,
                       from_year: int = 0, to_year: int = 0,
-                      max_rows: int = 400000,
+                      max_rows: int = 3_000_000,
                       log: LogFn | None = None,
-                      should_stop: Callable[[], bool] | None = None) -> dict[str, list[str]]:
-    """Build {host+path: [timestamps...]} for every juicy-file capture of a
-    whole domain in ONE paginated CDX stream (efficient + archive-friendly).
+                      should_stop: Callable[[], bool] | None = None) -> dict[str, dict]:
+    """Build {host+path: {"url": original, "caps": [timestamps...]}} for every
+    juicy-file capture of a whole domain in ONE paginated CDX stream (efficient
+    + archive-friendly via resumeKey, which datacenter IPs are *not* throttled
+    on, unlike waymore's page-mode).
 
     Captures are de-duplicated per file by content digest and capped, newest
-    first. This is far cheaper than one CDX query per URL.
+    first. A representative original URL is kept per file so the downloader can
+    fetch files discovered here even if they never appeared as a standalone URL
+    row. Far cheaper than one CDX query per URL.
     """
+    from urllib.parse import quote
     should_stop = should_stop or (lambda: False)
     ext_re = "|".join(re.escape(e) for e in exts)
-    cap_map: dict[str, list[str]] = {}
+    cap_map: dict[str, dict] = {}
     seen_digest: dict[str, set[str]] = {}
     resume: Optional[str] = None
     total = 0
@@ -182,21 +187,21 @@ def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
         if to_year:
             params.append(f"to={to_year}1231235959")
         if resume:
-            from urllib.parse import quote
             params.append("resumeKey=" + quote(resume, safe=""))
         url = CDX + "?" + "&".join(params)
         r = None
-        for attempt in range(4):
-            r = client.get(url, timeout=90)
+        for attempt in range(6):
+            r = client.get(url, timeout=120)
             if r.ok and r.text.strip():
                 break
             if r.ok and not r.text.strip():
                 break
-            time.sleep(min(2 ** attempt, 8))
+            time.sleep(min(2 ** attempt, 15))
         if r is None or not r.ok:
             if log:
                 log("warn", f"juicy-cdx: page failed ({getattr(r,'status',0)} "
-                            f"{getattr(getattr(r,'waf',None),'reason','')})")
+                            f"{getattr(getattr(r,'waf',None),'reason','')}) — "
+                            f"keeping {len(cap_map)} files mapped so far")
             break
         rows, nxt = _parse_cdx_json(r.text)
         for row in rows:
@@ -210,7 +215,14 @@ def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
             if dg in ds:
                 continue
             ds.add(dg)
-            cap_map.setdefault(key, []).append(ts)
+            ent = cap_map.get(key)
+            if ent is None:
+                ent = {"url": o, "caps": []}
+                cap_map[key] = ent
+            # prefer an https original for the representative URL
+            if o.startswith("https://") and not ent["url"].startswith("https://"):
+                ent["url"] = o
+            ent["caps"].append(ts)
             total += 1
         pages += 1
         if log and pages % 5 == 0:
@@ -220,13 +232,91 @@ def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
         resume = nxt
         time.sleep(0.2)
     # newest-first + cap per file
-    for key, tslist in cap_map.items():
-        tslist.sort(reverse=True)
-        if max_caps_per_url and len(tslist) > max_caps_per_url:
-            cap_map[key] = tslist[:max_caps_per_url]
+    for key, ent in cap_map.items():
+        ent["caps"].sort(reverse=True)
+        if max_caps_per_url and len(ent["caps"]) > max_caps_per_url:
+            ent["caps"] = ent["caps"][:max_caps_per_url]
     if log:
         log("info", f"juicy-cdx: {len(cap_map)} files mapped, {total} unique captures")
     return cap_map
+
+
+def harvest_domain(client: HttpClient, root: str, *,
+                   on_rows: Callable[[list[dict]], None],
+                   get_cursor: Callable[[str], Optional[str]],
+                   set_cursor: Callable[[str, str], None],
+                   log: LogFn,
+                   should_stop: Callable[[], bool],
+                   from_year: int = 0, to_year: int = 0,
+                   batch: int = 50000, max_rows: int = 0) -> int:
+    """Domain-wide CDX harvest of EVERY url via resumeKey pagination.
+
+    This is the reliable archive backbone: ``matchType=domain`` + ``collapse=
+    urlkey`` + ``showResumeKey`` streams every unique URL for ``*.root`` and is
+    NOT throttled on datacenter IPs the way waymore's page-mode wayback is
+    (verified: 50k urls/page in seconds vs. page-mode 503s). HttpClient retries
+    blocked pages through proxies; a resume cursor lets a killed job continue.
+    """
+    from urllib.parse import quote
+    resume = get_cursor("dom:resume") or None
+    if get_cursor("dom:done") == "1":
+        log("info", "cdx-domain: previously completed; re-streaming for new captures")
+        set_cursor("dom:done", "0")
+        resume = None
+    total = 0
+    pages = 0
+    empties = 0
+    while not should_stop():
+        params = [
+            f"url={root}", "matchType=domain", "output=json",
+            "fl=original,timestamp,statuscode,mimetype,digest",
+            "collapse=urlkey", f"limit={batch}", "showResumeKey=true",
+        ]
+        if from_year:
+            params.append(f"from={from_year}0101000000")
+        if to_year:
+            params.append(f"to={to_year}1231235959")
+        if resume:
+            params.append("resumeKey=" + quote(resume, safe=""))
+        url = CDX + "?" + "&".join(params)
+        r = None
+        for attempt in range(6):
+            if should_stop():
+                return total
+            r = client.get(url, timeout=180)
+            if r.ok and r.text.strip():
+                break
+            if r.ok and not r.text.strip():
+                break
+            time.sleep(min(2 ** attempt, 20))
+        if r is None or not r.ok:
+            log("warn", f"cdx-domain: page failed status={getattr(r,'status',0)} "
+                        f"{getattr(getattr(r,'waf',None),'reason','')}; cursor saved, resumable")
+            if resume:
+                set_cursor("dom:resume", resume)
+            break
+        rows, nxt = _parse_cdx_json(r.text)
+        if rows:
+            on_rows(rows)
+            total += len(rows)
+        else:
+            empties += 1
+        pages += 1
+        if log:
+            log("info", f"cdx-domain: page {pages} (+{len(rows)}), total={total}")
+        if not nxt:
+            set_cursor("dom:done", "1")
+            set_cursor("dom:resume", "")
+            break
+        resume = nxt
+        set_cursor("dom:resume", resume)
+        if max_rows and total >= max_rows:
+            log("warn", f"cdx-domain: reached max_rows cap {max_rows}; cursor saved")
+            break
+        if empties > 3:
+            break
+        time.sleep(0.15)
+    return total
 
 
 def harvest_host(client: HttpClient, host: str, *,
