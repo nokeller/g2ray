@@ -180,36 +180,38 @@ def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
     total = 0
     pages = 0
     while not should_stop():
-        params = [
+        base_params = [
             f"url={root}", "matchType=domain", "output=json",
             "fl=original,timestamp,digest,statuscode,mimetype",
             f"filter=urlkey:.*[.](?:{ext_re})(?:[?].*)?$",
-            f"limit={batch}", "showResumeKey=true",
+            "showResumeKey=true",
         ]
         if from_year:
-            params.append(f"from={from_year}0101000000")
+            base_params.append(f"from={from_year}0101000000")
         if to_year:
-            params.append(f"to={to_year}1231235959")
-        if resume:
-            params.append("resumeKey=" + quote(resume, safe=""))
-        url = CDX + "?" + "&".join(params)
+            base_params.append(f"to={to_year}1231235959")
         r = None
         # persistent retries while the map is still small (early pages hold the
         # most files and must not be lost to a transient archive.org drop);
-        # fast-fail once we have plenty (deep-offset stalls). The ext-regex
-        # filter is slow server-side, so keep page size modest to stay under the
-        # timeout.
-        max_attempt = 3 if len(cap_map) > 1500 else 5
-        for attempt in range(max_attempt):
+        # shrink the page + escalate to PROXY on retry. The ext-regex filter is
+        # slow server-side, so smaller pages stay under the timeout and complete
+        # reliably through residential proxies. (batch, force_proxy, timeout)
+        small = len(cap_map) > 1500
+        attempts = ([(batch, False, 30), (4000, True, 60), (2000, True, 70)]
+                    if small else
+                    [(batch, False, 30), (4000, True, 60), (2000, True, 70),
+                     (2000, True, 80), (1000, True, 80)])
+        for ai, (b, fp, to) in enumerate(attempts):
             if should_stop():
                 break
-            r = client.get(url, timeout=(30 if attempt == 0 else 50),
-                           force_proxy=(attempt >= 1), max_proxy_tries=1)
-            if r.ok and r.text.strip():
+            params = base_params + [f"limit={b}"]
+            if resume:
+                params.append("resumeKey=" + quote(resume, safe=""))
+            url = CDX + "?" + "&".join(params)
+            r = client.get(url, timeout=to, force_proxy=fp, max_proxy_tries=1)
+            if r.ok:
                 break
-            if r.ok and not r.text.strip():
-                break
-            time.sleep(min(3 * (attempt + 1), 12))
+            time.sleep(min(3 * (ai + 1), 15))
         if r is None or not r.ok:
             if log:
                 log("warn", f"juicy-cdx: page failed ({getattr(r,'status',0)} "
@@ -283,6 +285,7 @@ def harvest_domain(client: HttpClient, root: str, *,
     ty = to_year or now_year
     seen_urls: set[str] = set()
     total = 0
+    global_fail = 0
     for year in range(ty, fy - 1, -1):     # newest first = most relevant
         if should_stop():
             break
@@ -291,37 +294,58 @@ def harvest_domain(client: HttpClient, root: str, *,
         resume = get_cursor(f"dom:y{year}:resume") or None
         year_total = 0
         ypages = 0
+        year_page_retries = 0
         while not should_stop():
-            params = [
+            base_params = [
                 f"url={root}", "matchType=domain", "output=json",
                 "fl=original,timestamp,statuscode,mimetype,digest",
-                "collapse=urlkey", f"limit={batch}", "showResumeKey=true",
+                "collapse=urlkey", "showResumeKey=true",
                 f"from={year}0101000000", f"to={year}1231235959",
             ]
-            if resume:
-                params.append("resumeKey=" + quote(resume, safe=""))
-            url = CDX + "?" + "&".join(params)
+            # Adaptive page fetch: a 50k-row page over a rate-limited datacenter
+            # IP frequently resets mid-stream (curl 56/28), which previously
+            # abandoned the ENTIRE year (e.g. 2025/2023 -> 0 urls). Retry with
+            # progressively SMALLER pages via PROXY; small pages complete
+            # reliably through residential proxies. (batch, force_proxy, timeout)
+            attempts = [
+                (batch, False, 30),
+                (min(batch, 20000), True, 60),
+                (10000, True, 60),
+                (5000, True, 70),
+                (5000, True, 80),
+            ]
             r = None
-            for attempt in range(3):
+            for ai, (b, fp, to) in enumerate(attempts):
                 if should_stop():
                     return total
-                # escalate to proxy fast: archive.org stalls deep pages from
-                # datacenter IPs. Bound each call's proxy rotation so a failing
-                # page can't burn pool_size * timeout repeatedly.
-                r = client.get(url, timeout=(25 if attempt == 0 else 45),
-                               force_proxy=(attempt >= 1), max_proxy_tries=1)
-                if r.ok and r.text.strip():
+                params = base_params + [f"limit={b}"]
+                if resume:
+                    params.append("resumeKey=" + quote(resume, safe=""))
+                url = CDX + "?" + "&".join(params)
+                r = client.get(url, timeout=to, force_proxy=fp, max_proxy_tries=1)
+                if r.ok:
                     break
-                if r.ok and not r.text.strip():
-                    break
-                time.sleep(min(2 ** attempt, 8))
+                time.sleep(min(3 * (ai + 1), 18))
             if r is None or not r.ok:
+                global_fail += 1
+                if resume:
+                    set_cursor(f"dom:y{year}:resume", resume)
+                # A transient reset on a year's FIRST page would zero the whole
+                # year — retry the page a couple times with a cooldown first.
+                if year_total == 0 and year_page_retries < 2:
+                    year_page_retries += 1
+                    log("warn", f"cdx-domain {year}: first-page reset, retry "
+                                f"{year_page_retries}/2 after cooldown")
+                    time.sleep(20)
+                    continue
                 log("warn", f"cdx-domain {year}: page failed "
                             f"status={getattr(r,'status',0)} "
                             f"{getattr(getattr(r,'waf',None),'reason','')}; "
                             f"cursor saved, resumable")
-                if resume:
-                    set_cursor(f"dom:y{year}:resume", resume)
+                if global_fail >= 25:
+                    log("warn", "cdx-domain: archive.org blocking persistently "
+                                "(25+ failures); stopping CDX, waymore continues")
+                    return total
                 break
             rows, nxt = _parse_cdx_json(r.text)
             new_rows = []
