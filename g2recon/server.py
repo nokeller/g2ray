@@ -28,12 +28,20 @@ from .worker import get_manager
 WEB_DIR = Path(__file__).resolve().parent / "web"
 COOKIE = "g2r_session"
 
-app = FastAPI(title="g2recon", version="1.1.0")
+app = FastAPI(title="g2recon", version="1.2.0")
 
 
 @app.on_event("startup")
 def _startup():
     init_db()
+    # clear phantom 'running'/'queued' jobs left by a previous process
+    s = get_session()
+    try:
+        n = store.reset_orphan_jobs(s)
+        if n:
+            print(f"[g2recon] reset {n} orphaned job(s) on startup")
+    finally:
+        s.close()
     get_manager()
 
 
@@ -144,10 +152,27 @@ async def update_settings(body: dict = Body(...), user: str = Depends(require_au
                 "wayback_from_year", "wayback_to_year", "download_workers",
                 "check_workers", "fuzz_workers", "request_delay_ms",
                 "max_files_per_target", "max_concurrent_jobs",
-                "use_proxy_only_on_block"):
+                "use_proxy_only_on_block", "block_cooldown_sec",
+                "archive_engine", "waymore_processes", "waymore_req_timeout",
+                "waymore_run_timeout", "waymore_limit_requests",
+                "waymore_include_subs", "archive_timetravel",
+                "max_snapshots_per_url"):
         if key in body:
             setattr(SETTINGS, key, body[key])
             changed = True
+    # api keys: only update when a real (non-masked, non-empty) value is sent
+    for key in ("urlscan_api_key", "otx_api_key", "virustotal_api_key",
+                "intelx_api_key"):
+        if key in body:
+            val = (body[key] or "").strip()
+            if val and "…" not in val:
+                setattr(SETTINGS, key, val)
+                changed = True
+            elif val == "":
+                # explicit empty string clears the key
+                if body.get("_clear_keys"):
+                    setattr(SETTINGS, key, "")
+                    changed = True
     if body.get("new_password"):
         SETTINGS.admin_password_hash = hash_password(body["new_password"])
         changed = True

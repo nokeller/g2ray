@@ -115,6 +115,26 @@ def add_fuzzresult(session, target_id: int, rec: dict) -> int:
 
 
 # ---------- job + log ----------
+def reset_orphan_jobs(session) -> int:
+    """On startup, any job still 'running'/'queued' has no live thread behind it
+    (the process restarted). Mark them stopped and their targets idle so the UI
+    doesn't show a phantom run forever."""
+    from sqlalchemy import update
+    orphans = session.execute(
+        select(Job.id, Job.target_id).where(Job.status.in_(["running", "queued"]))).all()
+    if not orphans:
+        return 0
+    tids = {t for (_, t) in orphans}
+    session.execute(update(Job).where(Job.status.in_(["running", "queued"]))
+                    .values(status="stopped", detail="reset on restart"))
+    for tid in tids:
+        t = session.get(Target, tid)
+        if t and t.status in ("running", "queued"):
+            t.status = "stopped"
+    session.commit()
+    return len(orphans)
+
+
 def log(session, job_id: int, target_id: int, level: str, step: str, message: str):
     session.add(JobLog(job_id=job_id, target_id=target_id, level=level,
                        step=step, message=message[:2000]))

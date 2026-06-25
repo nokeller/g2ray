@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import re
 import time
 from typing import Callable, Iterable, Optional
 
@@ -100,6 +101,132 @@ def snapshots_for(client: HttpClient, url: str, log: LogFn,
         return []
     rows, _ = _parse_cdx_json(r.text)
     return rows
+
+
+def unique_snapshots(client: HttpClient, url: str, *, max_caps: int = 25,
+                     from_year: int = 0, to_year: int = 0,
+                     log: LogFn | None = None) -> list[dict]:
+    """Return time-travel captures of one URL, de-duplicated by content digest.
+
+    archive.org often stores hundreds of identical captures of the same file;
+    we only want each *unique content* once. Newest captures are preferred when
+    capping. Returns rows with timestamp/digest/statuscode/mimetype.
+
+    NOTE: this issues one CDX request per URL, which is slow at scale. For a
+    whole target prefer :func:`juicy_capture_map` (one paginated stream).
+    """
+    from urllib.parse import quote
+    params = [f"url={quote(url, safe='')}", "output=json",
+              "fl=timestamp,original,statuscode,mimetype,digest",
+              "collapse=digest", "limit=5000"]
+    if from_year:
+        params.append(f"from={from_year}0101000000")
+    if to_year:
+        params.append(f"to={to_year}1231235959")
+    u = CDX + "?" + "&".join(params)
+    r = client.get(u, timeout=60)
+    if not r.ok or not r.text.strip():
+        return []
+    rows, _ = _parse_cdx_json(r.text)
+    seen: set[str] = set()
+    uniq: list[dict] = []
+    for row in rows:
+        dg = row.get("digest") or row.get("timestamp")
+        if dg in seen:
+            continue
+        seen.add(dg)
+        uniq.append(row)
+    uniq.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    if max_caps and len(uniq) > max_caps:
+        uniq = uniq[:max_caps]
+    return uniq
+
+
+def _cap_key(url: str) -> str:
+    """Scheme/query-agnostic key (host + path) for grouping captures of a file."""
+    from urllib.parse import urlsplit
+    p = urlsplit(url if "://" in url else "http://" + url)
+    return (p.hostname or "").lower() + (p.path or "/")
+
+
+def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
+                      batch: int = 5000, max_caps_per_url: int = 25,
+                      from_year: int = 0, to_year: int = 0,
+                      max_rows: int = 400000,
+                      log: LogFn | None = None,
+                      should_stop: Callable[[], bool] | None = None) -> dict[str, list[str]]:
+    """Build {host+path: [timestamps...]} for every juicy-file capture of a
+    whole domain in ONE paginated CDX stream (efficient + archive-friendly).
+
+    Captures are de-duplicated per file by content digest and capped, newest
+    first. This is far cheaper than one CDX query per URL.
+    """
+    should_stop = should_stop or (lambda: False)
+    ext_re = "|".join(re.escape(e) for e in exts)
+    cap_map: dict[str, list[str]] = {}
+    seen_digest: dict[str, set[str]] = {}
+    resume: Optional[str] = None
+    total = 0
+    pages = 0
+    while True:
+        if should_stop():
+            break
+        params = [
+            f"url={root}", "matchType=domain", "output=json",
+            "fl=original,timestamp,digest,statuscode,mimetype",
+            f"filter=urlkey:.*[.](?:{ext_re})(?:[?].*)?$",
+            f"limit={batch}", "showResumeKey=true",
+        ]
+        if from_year:
+            params.append(f"from={from_year}0101000000")
+        if to_year:
+            params.append(f"to={to_year}1231235959")
+        if resume:
+            from urllib.parse import quote
+            params.append("resumeKey=" + quote(resume, safe=""))
+        url = CDX + "?" + "&".join(params)
+        r = None
+        for attempt in range(4):
+            r = client.get(url, timeout=90)
+            if r.ok and r.text.strip():
+                break
+            if r.ok and not r.text.strip():
+                break
+            time.sleep(min(2 ** attempt, 8))
+        if r is None or not r.ok:
+            if log:
+                log("warn", f"juicy-cdx: page failed ({getattr(r,'status',0)} "
+                            f"{getattr(getattr(r,'waf',None),'reason','')})")
+            break
+        rows, nxt = _parse_cdx_json(r.text)
+        for row in rows:
+            o = row.get("original")
+            ts = row.get("timestamp")
+            dg = row.get("digest") or ts
+            if not o or not ts:
+                continue
+            key = _cap_key(o)
+            ds = seen_digest.setdefault(key, set())
+            if dg in ds:
+                continue
+            ds.add(dg)
+            cap_map.setdefault(key, []).append(ts)
+            total += 1
+        pages += 1
+        if log and pages % 5 == 0:
+            log("info", f"juicy-cdx: {pages} pages, {len(cap_map)} files, {total} captures")
+        if not nxt or total >= max_rows:
+            break
+        resume = nxt
+        time.sleep(0.2)
+    # newest-first + cap per file
+    for key, tslist in cap_map.items():
+        tslist.sort(reverse=True)
+        if max_caps_per_url and len(tslist) > max_caps_per_url:
+            cap_map[key] = tslist[:max_caps_per_url]
+    if log:
+        log("info", f"juicy-cdx: {len(cap_map)} files mapped, {total} unique captures")
+    return cap_map
 
 
 def harvest_host(client: HttpClient, host: str, *,

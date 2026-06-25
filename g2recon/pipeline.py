@@ -11,6 +11,7 @@ Steps (each can be excluded from the UI):
 """
 from __future__ import annotations
 
+import datetime as dt
 import threading
 import traceback
 from pathlib import Path
@@ -24,7 +25,8 @@ from .db import get_session, Target, Subdomain, Url, FileRecord, JsLink, Reflect
 from .http_client import get_client
 from .modules import (subdomains as m_sub, wayback as m_wb, downloader as m_dl,
                       jsanalyze, params as m_params, reflection as m_refl,
-                      openredirect as m_or, livecheck as m_live, fuzz as m_fuzz)
+                      openredirect as m_or, livecheck as m_live, fuzz as m_fuzz,
+                      waymore_runner as m_waymore)
 
 STEP_ORDER = ["subdomains", "wayback", "files", "params",
               "reflection", "openredirect", "livecheck", "fuzz"]
@@ -123,13 +125,69 @@ class PipelineRunner:
         self.log("info", "subdomains", f"{len(hosts)} unique subdomains (+{n} new in db)")
 
     def _step_wayback(self):
-        hosts = self._in_scope_hosts()
+        """Archive harvesting. Primary engine is waymore (Wayback + Common Crawl
+        + OTX + URLScan + VirusTotal + IntelX); falls back to per-host CDX."""
+        engine = (self.options.get("archive_engine") or SETTINGS.archive_engine).lower()
         from_year = int(self.options.get("wayback_from_year") or SETTINGS.wayback_from_year)
-        to_year = int(self.options.get("wayback_to_year") or SETTINGS.wayback_to_year)
+        to_year = int(self.options.get("wayback_to_year") or SETTINGS.wayback_to_year) \
+            or dt.datetime.now(dt.timezone.utc).year
+
+        if engine in ("waymore", "both"):
+            if m_waymore.have_waymore():
+                self._run_waymore(from_year, to_year)
+            else:
+                self.log("warn", "wayback", "waymore not installed; falling back to CDX")
+                engine = "cdx"
+        if engine in ("cdx", "both"):
+            self._run_cdx(from_year, to_year)
+
+        self._backfill_subdomains()
+        urls = self._all_urls()
+        (self.dir / f"{self.slug}_urls.txt").write_text("\n".join(sorted(set(urls))) + "\n")
+        self.log("info", "wayback", f"{len(urls)} total urls collected")
+
+    def _run_waymore(self, from_year: int, to_year: int) -> int:
+        cfg = m_waymore.write_config(
+            self.dir / "waymore_config.yml",
+            urlscan_key=SETTINGS.urlscan_api_key,
+            vt_key=SETTINGS.virustotal_api_key,
+            intelx_key=SETTINGS.intelx_api_key,
+            filter_code=str(self.options.get("archive_filter_code", "404")))
+        out = self.dir / "waymore_urls.txt"
+        from_date = f"{from_year}0101000000" if from_year else ""
+        to_date = f"{to_year}1231235959" if to_year else ""
+        kw = self.options.get("waymore_keywords_only") or None
+        urls = m_waymore.run(
+            self.root, out, cfg,
+            log=lambda lvl, m: self.log(lvl, "wayback", m),
+            should_stop=self.should_stop,
+            from_date=from_date, to_date=to_date, keywords_only=kw,
+            run_timeout=int(self.options.get("waymore_run_timeout")
+                            or SETTINGS.waymore_run_timeout),
+            limit_requests=int(self.options.get("waymore_limit_requests")
+                               or SETTINGS.waymore_limit_requests),
+            processes=int(self.options.get("waymore_processes")
+                          or SETTINGS.waymore_processes))
+        payload = [{
+            "url": u, "host": util.host_of(u), "source": "waymore",
+            "mime": "", "archive_ts": "",
+            "is_juicy": util.is_juicy_url(u), "has_params": util.has_params(u),
+        } for u in urls if u]
+        # store in chunks to keep the write lock short
+        for i in range(0, len(payload), 2000):
+            if self.should_stop():
+                break
+            with self._lock:
+                store.add_urls(self.session, self.target_id, payload[i:i + 2000])
+        self.log("info", "wayback", f"waymore stored {len(payload)} urls")
+        return len(payload)
+
+    def _run_cdx(self, from_year: int, to_year: int):
+        hosts = self._in_scope_hosts()
         years = m_wb.year_range(from_year, to_year)
         batch = int(self.options.get("wayback_batch_size") or SETTINGS.wayback_batch_size)
-        self.log("info", "wayback", f"{len(hosts)} hosts x years {years[0]}..{years[-1]} "
-                                    f"batch={batch}")
+        self.log("info", "wayback", f"CDX: {len(hosts)} hosts x years "
+                                    f"{years[0]}..{years[-1]} batch={batch}")
 
         def on_rows(rows):
             payload = []
@@ -160,37 +218,57 @@ class PipelineRunner:
         with cf.ThreadPoolExecutor(max_workers=workers) as ex:
             list(ex.map(do_host, hosts))
 
-        urls = self._all_urls()
-        (self.dir / f"{self.slug}_urls.txt").write_text("\n".join(sorted(set(urls))) + "\n")
-        self.log("info", "wayback", f"{len(urls)} urls collected")
+    def _backfill_subdomains(self):
+        """Add in-scope hosts discovered in archive URLs to the subdomain table."""
+        hosts: set[str] = set()
+        for (h,) in self.session.execute(
+                select(Url.host).where(Url.target_id == self.target_id,
+                                       Url.host != "").distinct()).all():
+            if h and util.in_scope(h, self.root):
+                hosts.add(h)
+        if hosts:
+            with self._lock:
+                n = store.add_subdomains(self.session, self.target_id,
+                                         [(h, "archive") for h in hosts])
+            self.log("info", "wayback", f"backfilled subdomains from archive hosts "
+                                        f"({len(hosts)} in-scope hosts seen)")
 
     def _step_files(self):
         max_depth = int(self.options.get("max_recursion_depth", 3))
         max_files = int(self.options.get("max_files") or SETTINGS.max_files_per_target or 0)
         variants = self.options.get("download_variants") or ["live", "archived"]
+        timetravel = bool(self.options.get("archive_timetravel", SETTINGS.archive_timetravel))
+        max_caps = int(self.options.get("max_snapshots_per_url")
+                       if self.options.get("max_snapshots_per_url") is not None
+                       else SETTINGS.max_snapshots_per_url)
+        from_year = int(self.options.get("wayback_from_year") or 0)
+        to_year = int(self.options.get("wayback_to_year") or 0)
 
-        # Keep each archived timestamp. Live downloads are deduped by URL, archived
-        # downloads are per URL+timestamp so time-travel captures are preserved.
+        # distinct juicy urls (waymore gives no per-capture ts; we time-travel here)
         rows = self.session.execute(
-            select(Url.url, Url.archive_ts).where(
-                Url.target_id == self.target_id, Url.is_juicy == True)).all()  # noqa: E712
-        juicy = [(u, ts) for (u, ts) in rows]
+            select(Url.url).where(Url.target_id == self.target_id,
+                                  Url.is_juicy == True).distinct()).all()  # noqa: E712
+        juicy_urls = [r[0] for r in rows]
         if max_files:
-            juicy = juicy[:max_files]
-        self.log("info", "files", f"{len(juicy)} juicy urls to download "
-                                  f"(variants={variants}, depth={max_depth})")
+            juicy_urls = juicy_urls[:max_files]
+        self.log("info", "files", f"{len(juicy_urls)} juicy urls "
+                 f"(variants={variants}, depth={max_depth}, timetravel={timetravel}, "
+                 f"max_caps={max_caps})")
 
-        items = []
-        live_seen: set[str] = set()
-        for u, ts in juicy:
-            kind = util.kind_for_url(u)
-            if "live" in variants and u not in live_seen:
-                live_seen.add(u)
-                items.append({"url": u, "variant": "live", "parent_url": util.host_of(u),
-                              "kind": kind, "depth": 0})
-            if "archived" in variants and ts:
-                items.append({"url": u, "variant": "archived", "archive_ts": ts,
-                              "parent_url": util.host_of(u), "kind": kind, "depth": 0})
+        # one bulk CDX stream -> {host+path: [timestamps]} (archive-friendly,
+        # de-duplicated by content digest) instead of one query per file.
+        cap_map: dict[str, list[str]] = {}
+        if "archived" in variants:
+            exts = ["js", "mjs", "cjs", "json", "map", "xml", "yml", "yaml", "env",
+                    "config", "cfg", "conf", "ini", "txt", "bak", "old", "csv",
+                    "wsdl", "wadl", "properties", "toml"]
+            self.log("info", "files", "building archive capture map (bulk CDX)…")
+            cap_map = m_wb.juicy_capture_map(
+                self.client, self.root, exts=exts,
+                max_caps_per_url=(max_caps or 0) if timetravel else 1,
+                from_year=from_year, to_year=to_year,
+                log=lambda lvl, m: self.log(lvl, "files", m),
+                should_stop=self.should_stop)
 
         dl = m_dl.Downloader(self.dir, self.client)
         seen_urls: set[str] = set()
@@ -213,6 +291,28 @@ class PipelineRunner:
                     for nf in analysis["new_files"]:
                         new_parent.setdefault(nf, rec["url"])
 
+        def make_items(urls, depth, parent_map):
+            items = []
+            for u in urls:
+                kind = util.kind_for_url(u)
+                parent = (parent_map or {}).get(u, "")
+                if "live" in variants:
+                    items.append({"url": u, "variant": "live",
+                                  "parent_url": parent or util.host_of(u),
+                                  "kind": kind, "depth": depth})
+                if "archived" in variants:
+                    caps = cap_map.get(m_wb._cap_key(u), [])
+                    if timetravel:
+                        caps = caps[:max_caps] if max_caps else caps
+                    else:
+                        caps = caps[:1]
+                    for ts in caps:
+                        items.append({"url": u, "variant": "archived", "archive_ts": ts,
+                                      "parent_url": parent or "archive",
+                                      "kind": kind, "depth": depth})
+            return items
+
+        items = make_items(juicy_urls, 0, None)
         depth = 0
         while items and depth <= max_depth:
             if self.should_stop():
@@ -222,17 +322,14 @@ class PipelineRunner:
                              lambda lvl, m: self.log(lvl, "files", m), self.should_stop)
             for it in items:
                 seen_urls.add(it["url"])
-            # next depth = newly discovered in-scope files not yet seen
             new_urls = [u for u in new_parent.keys() if u not in seen_urls]
             new_parent_local = dict(new_parent)
             new_parent.clear()
-            items = [{"url": u, "variant": "live", "parent_url": new_parent_local.get(u, ""),
-                      "kind": util.kind_for_url(u), "depth": depth + 1}
-                     for u in new_urls]
             if max_files and len(seen_urls) >= max_files:
                 break
             depth += 1
-        self.log("info", "files", f"downloaded/analyzed {len(seen_urls)} files")
+            items = make_items(new_urls, depth, new_parent_local) if new_urls else []
+        self.log("info", "files", f"downloaded/analyzed {len(seen_urls)} unique file urls")
 
     def _step_params(self):
         urls = self._all_urls(only_params=True)
@@ -289,12 +386,20 @@ class PipelineRunner:
         if not urls:
             self.log("info", "openredirect", "no parametrised urls")
             return
+        # bound by unique signatures so 130k param-urls don't explode into probes
+        max_urls = int(self.options.get("openredirect_max_urls")
+                       if self.options.get("openredirect_max_urls") is not None else 1500)
+        sigs = list(m_refl.dedup_targets(urls).values())
+        if max_urls and len(sigs) > max_urls:
+            self.log("warn", "openredirect", f"capping {len(sigs)} -> {max_urls} url signatures")
+            sigs = sigs[:max_urls]
+        urls_capped = [s["url"] for s in sigs]
         scanner = m_or.OpenRedirectScanner(self.client)
 
         def persist(rec):
             with self._lock:
                 store.add_openredirect(self.session, self.target_id, rec)
-        scanner.scan(urls, persist,
+        scanner.scan(urls_capped, persist,
                      lambda lvl, m: self.log(lvl, "openredirect", m), self.should_stop)
         rows = self.session.execute(
             select(OpenRedirect.url, OpenRedirect.param, OpenRedirect.payload, OpenRedirect.location)
@@ -319,12 +424,19 @@ class PipelineRunner:
         # juicy urls
         for u in self._all_urls(only_juicy=True):
             targets.add(u)
+        target_list = list(targets)
+        cap = int(self.options.get("livecheck_max_urls")
+                  if self.options.get("livecheck_max_urls") is not None else 8000)
+        if cap and len(target_list) > cap:
+            self.log("warn", "livecheck", f"capping {len(target_list)} -> {cap} urls "
+                                          "(raise livecheck_max_urls to check more)")
+            target_list = target_list[:cap]
         checker = m_live.LiveChecker(self.client)
 
         def persist(rec):
             with self._lock:
                 store.add_liveresult(self.session, self.target_id, rec)
-        checker.check_many(list(targets), persist,
+        checker.check_many(target_list, persist,
                            lambda lvl, m: self.log(lvl, "livecheck", m), self.should_stop)
 
     def _step_fuzz(self):
@@ -336,11 +448,17 @@ class PipelineRunner:
         for u in self._all_urls(only_juicy=True):
             base_dirs.add(m_fuzz.base_dir_of(u))
         wl_path = self.options.get("fuzz_wordlist_path") or str(WORDLIST_DIR / "js_words.txt")
-        words = m_params.load_base(wl_path) if Path(wl_path).exists() else set()
+        words = m_params.load_wordlist(wl_path) if Path(wl_path).exists() else []
         if not words:
-            words = {"app", "main", "index", "config", "settings", "admin", "api",
-                     "bundle", "vendor", "runtime", "chunk", "auth", "login", "user"}
-        fuzzer = m_fuzz.Fuzzer(self.client)
+            words = ["app", "main", "index", "config", "settings", "admin", "api",
+                     "bundle", "vendor", "runtime", "chunk", "auth", "login", "user"]
+        max_words = int(self.options.get("fuzz_max_words") or 0)
+        if max_words and len(words) > max_words:
+            words = words[:max_words]
+        max_dirs = int(self.options.get("fuzz_max_base_dirs")
+                       if self.options.get("fuzz_max_base_dirs") is not None else 300)
+        exts = self.options.get("fuzz_exts") or None
+        fuzzer = m_fuzz.Fuzzer(self.client, exts=exts, max_base_dirs=max_dirs)
 
         def persist(rec):
             with self._lock:

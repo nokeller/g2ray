@@ -108,8 +108,12 @@ def from_wayback(root: str, client: HttpClient, log: LogFn) -> set[str]:
 
 def from_otx(root: str, client: HttpClient, log: LogFn) -> set[str]:
     out: set[str] = set()
+    from ..config import SETTINGS
+    headers = {}
+    if SETTINGS.otx_api_key:
+        headers["X-OTX-API-KEY"] = SETTINGS.otx_api_key
     url = f"https://otx.alienvault.com/api/v1/indicators/domain/{root}/passive_dns"
-    r = client.get(url, timeout=40)
+    r = client.get(url, timeout=40, headers=headers) if headers else client.get(url, timeout=40)
     if not r.ok:
         return out
     try:

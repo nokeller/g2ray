@@ -314,6 +314,16 @@ function runModal(){
   const reflUrls=el("input",{type:"number",value:400,style:"width:90px"});
   const reflParams=el("input",{type:"number",value:1024,style:"width:90px"});
   const paramsFile=el("input",{type:"file"});
+  // archive engine + scale caps
+  const engineSel=el("select",{},...["waymore","both","cdx"].map(o=>el("option",{value:o},o)));
+  const wmTimeout=el("input",{type:"number",value:0,style:"width:90px",title:"waymore overall timeout (s), 0=none"});
+  const wmLimit=el("input",{type:"number",value:0,style:"width:90px",title:"waymore per-source request limit, 0=none"});
+  const maxFiles=el("input",{type:"number",value:0,style:"width:90px",title:"max juicy files to download, 0=all"});
+  const maxSnaps=el("input",{type:"number",value:25,style:"width:80px",title:"max archived captures per file"});
+  const liveMax=el("input",{type:"number",value:8000,style:"width:90px"});
+  const orMax=el("input",{type:"number",value:1500,style:"width:90px"});
+  const fzDirs=el("input",{type:"number",value:300,style:"width:80px"});
+  const fzWords=el("input",{type:"number",value:0,style:"width:80px",title:"0=all words"});
 
   const card=el("div",{class:"card"},
     el("h3",{},"Run recon — "+t.name),
@@ -323,16 +333,29 @@ function runModal(){
     el("div",{class:"field"},el("label",{},"Paste subdomains (optional)"),paste),
     el("div",{class:"field"},el("label",{},"Subindex output (optional)"),subindex),
     el("div",{class:"field"},el("label",{},"Subindex file upload (optional)"),subindexFile),
-    el("div",{class:"row wrap",style:"gap:14px;margin:8px 0"},
+    el("b",{},"Archive engine"),
+    el("div",{class:"row wrap",style:"gap:14px;margin:6px 0"},
+      el("label",{class:"row"},"engine",engineSel),
+      el("label",{class:"row"},"waymore timeout s",wmTimeout),
+      el("label",{class:"row"},"req limit",wmLimit)),
+    el("div",{class:"row wrap",style:"gap:14px"},
       el("label",{class:"row"},"Wayback years",fromY,"→",toY),
       el("label",{class:"row"},"Batch",batch),
       el("label",{class:"row"},"Recursion depth",depth)),
-    el("div",{class:"row wrap",style:"gap:14px"},
+    el("div",{class:"row wrap",style:"gap:14px;margin-top:8px"},
       el("label",{class:"row"},vlive,"download live"),
       el("label",{class:"row"},varch,"download archived"),
+      el("label",{class:"row"},"max files",maxFiles),
+      el("label",{class:"row"},"max snapshots/file",maxSnaps)),
+    el("div",{class:"row wrap",style:"gap:14px;margin-top:8px"},
       el("label",{class:"row"},"refl. URLs",reflUrls),
-      el("label",{class:"row"},"refl. params",reflParams)),
-    el("div",{class:"field"},el("label",{},"Base params.txt (optional upload)"),paramsFile),
+      el("label",{class:"row"},"refl. params",reflParams),
+      el("label",{class:"row"},"open-redir URLs",orMax)),
+    el("div",{class:"row wrap",style:"gap:14px;margin-top:8px"},
+      el("label",{class:"row"},"live max",liveMax),
+      el("label",{class:"row"},"fuzz dirs",fzDirs),
+      el("label",{class:"row"},"fuzz words",fzWords)),
+    el("div",{class:"field",style:"margin-top:8px"},el("label",{},"Base params.txt (optional upload)"),paramsFile),
     el("div",{class:"row spread",style:"margin-top:14px"},
       el("button",{class:"btn",onclick:closeModal},"Cancel"),
       el("button",{class:"btn primary",onclick:async()=>{
@@ -345,10 +368,15 @@ function runModal(){
         const variants=[]; if(vlive.checked)variants.push("live"); if(varch.checked)variants.push("archived");
         const opt={ excluded_steps:excluded, subdomain_sources:sources,
           paste_subdomains:paste.value, subindex_output:subindex.value,
+          archive_engine:engineSel.value,
+          waymore_run_timeout:+wmTimeout.value||0, waymore_limit_requests:+wmLimit.value||0,
           wayback_from_year:+fromY.value||2020, wayback_to_year:+toY.value||0,
           wayback_batch_size:+batch.value||5000, max_recursion_depth:+depth.value||3,
-          download_variants:variants, reflection_max_urls:+reflUrls.value||400,
-          reflection_max_params:+reflParams.value||1024 };
+          download_variants:variants, max_files:+maxFiles.value||0,
+          max_snapshots_per_url:+maxSnaps.value||25,
+          reflection_max_urls:+reflUrls.value||400, reflection_max_params:+reflParams.value||1024,
+          openredirect_max_urls:+orMax.value||1500, livecheck_max_urls:+liveMax.value||8000,
+          fuzz_max_base_dirs:+fzDirs.value||300, fuzz_max_words:+fzWords.value||0 };
         try{ await api("POST",`/api/targets/${t.id}/start`,opt); toast("recon started"); closeModal();
           await loadTargets(); state.tab="logs"; renderTarget(); }
         catch(e){ toast(e.message); }
@@ -380,35 +408,74 @@ function newTargetModal(){
 /* ---------- settings ---------- */
 async function settingsModal(){
   const s=await api("GET","/api/settings");
-  const banner=el("div",{class:"banner"},"⚠ Proxy credentials are stored only on this server. Rotate any credentials you shared elsewhere.");
-  const proxies=el("textarea",{rows:3,placeholder:"host:port:user:pass  (one per line)"});
-  const dlw=el("input",{type:"number",value:s.download_workers,style:"width:80px"});
-  const chw=el("input",{type:"number",value:s.check_workers,style:"width:80px"});
-  const fzw=el("input",{type:"number",value:s.fuzz_workers,style:"width:80px"});
-  const conc=el("input",{type:"number",value:s.max_concurrent_jobs,style:"width:80px"});
-  const delay=el("input",{type:"number",value:s.request_delay_ms,style:"width:80px"});
+  const banner=el("div",{class:"banner"},"⚠ Proxy credentials & API keys are stored only on this server (data/config.json) and are masked here. Rotate anything you shared elsewhere.");
+  const proxies=el("textarea",{rows:3,placeholder:"host:port:user:pass  (one per line) — used automatically when the direct IP is WAF/rate-limit blocked"});
+  // api keys
+  function keyField(label,key){
+    const set=s[key+"_set"]; const hint=s[key+"_hint"]||"";
+    const inp=el("input",{type:"password",placeholder:set?("set ("+hint+") — leave blank to keep"):"not set",style:"width:100%","data-key":key});
+    return el("div",{class:"field"},el("label",{},label+" "+(set?"✓":"—")),inp);
+  }
+  const urlscan=keyField("URLScan API key","urlscan_api_key");
+  const otx=keyField("AlienVault OTX API key","otx_api_key");
+  const vt=keyField("VirusTotal API key","virustotal_api_key");
+  const ix=keyField("Intelligence X API key","intelx_api_key");
+  // archive engine + waymore
+  const engine=el("select",{},...["waymore","both","cdx"].map(o=>el("option",{value:o,...(s.archive_engine===o?{selected:"selected"}:{})},o)));
+  const wproc=numIn(s.waymore_processes,"80"); const wto=numIn(s.waymore_run_timeout,"110");
+  const wlim=numIn(s.waymore_limit_requests,"110"); const cooldown=numIn(s.block_cooldown_sec,"90");
+  const caps=numIn(s.max_snapshots_per_url,"80");
+  const tt=el("input",{type:"checkbox",...(s.archive_timetravel?{checked:"checked"}:{})});
+  const subs=el("input",{type:"checkbox",...(s.waymore_include_subs?{checked:"checked"}:{})});
+  // workers
+  const dlw=numIn(s.download_workers,"70"); const chw=numIn(s.check_workers,"70");
+  const fzw=numIn(s.fuzz_workers,"70"); const conc=numIn(s.max_concurrent_jobs,"70");
+  const delay=numIn(s.request_delay_ms,"70");
   const pw=el("input",{type:"password",placeholder:"new password",style:"width:100%"});
   const cur=el("div",{class:"muted mono",style:"font-size:11px"}, (s.proxies||[]).join("  |  ")||"no proxies configured");
   const card=el("div",{class:"card"}, el("h3",{},"Settings"), banner,
-    el("div",{},"Active impersonation: ",el("span",{class:"code"},s.impersonate_active||s.impersonate)),
+    el("div",{},"Active impersonation: ",el("span",{class:"code"},s.impersonate_active||s.impersonate),
+        "  ·  proxies: ",el("span",{class:"code"},String(s.proxy_count||0))),
+    el("h4",{style:"margin:14px 0 4px"},"Passive-source API keys (used by waymore + subdomain enum)"),
+    urlscan,otx,vt,ix,
+    el("h4",{style:"margin:14px 0 4px"},"Archive engine"),
+    el("div",{class:"row wrap",style:"gap:14px"},
+      el("label",{class:"row"},"engine",engine),
+      el("label",{class:"row"},"waymore -p",wproc),
+      el("label",{class:"row"},"run timeout s",wto),
+      el("label",{class:"row"},"req limit",wlim)),
+    el("div",{class:"row wrap",style:"gap:14px;margin-top:8px"},
+      el("label",{class:"row"},subs,"include subdomains"),
+      el("label",{class:"row"},tt,"archive time-travel"),
+      el("label",{class:"row"},"max snapshots/file",caps),
+      el("label",{class:"row"},"block cooldown s",cooldown)),
+    el("h4",{style:"margin:14px 0 4px"},"Proxies"),
     el("div",{class:"field"},el("label",{},"Configured proxies (masked)"),cur),
     el("div",{class:"field"},el("label",{},"Set proxies (replaces list)"),proxies),
+    el("h4",{style:"margin:14px 0 4px"},"Concurrency"),
     el("div",{class:"row wrap",style:"gap:14px"},
       el("label",{class:"row"},"download",dlw),el("label",{class:"row"},"check",chw),
-      el("label",{class:"row"},"fuzz",fzw),el("label",{class:"row"},"concurrency",conc),
+      el("label",{class:"row"},"fuzz",fzw),el("label",{class:"row"},"jobs",conc),
       el("label",{class:"row"},"delay ms",delay)),
-    el("div",{class:"field"},el("label",{},"Change admin password"),pw),
+    el("div",{class:"field",style:"margin-top:10px"},el("label",{},"Change admin password"),pw),
     el("div",{class:"row spread",style:"margin-top:12px"}, el("button",{class:"btn",onclick:closeModal},"Close"),
       el("button",{class:"btn primary",onclick:async()=>{
         const body={ download_workers:+dlw.value, check_workers:+chw.value,
-          fuzz_workers:+fzw.value, max_concurrent_jobs:+conc.value, request_delay_ms:+delay.value };
+          fuzz_workers:+fzw.value, max_concurrent_jobs:+conc.value, request_delay_ms:+delay.value,
+          archive_engine:engine.value, waymore_processes:+wproc.value, waymore_run_timeout:+wto.value,
+          waymore_limit_requests:+wlim.value, waymore_include_subs:subs.checked,
+          archive_timetravel:tt.checked, max_snapshots_per_url:+caps.value, block_cooldown_sec:+cooldown.value };
         const px=proxies.value.split("\n").map(x=>x.trim()).filter(Boolean);
         if(px.length) body.proxies=px;
+        for(const inp of [urlscan,otx,vt,ix].map(f=>$("input",f))){
+          const v=inp.value.trim(); if(v) body[inp.getAttribute("data-key")]=v;
+        }
         if(pw.value) body.new_password=pw.value;
         try{ await api("POST","/api/settings",body); toast("saved"); closeModal(); }catch(e){toast(e.message);}
       }},"Save")));
   modal(card);
 }
+function numIn(val,w){ return el("input",{type:"number",value:(val==null?0:val),style:"width:"+(w||"80")+"px"}); }
 
 /* ---------- polling ---------- */
 function startPolling(){

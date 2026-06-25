@@ -110,6 +110,48 @@ class HttpClient:
         self.pool = ProxyPool(proxies if proxies is not None else SETTINGS.proxies)
         self.impersonate = impersonate or IMPERSONATE
         self._local = threading.local()
+        # host -> unix ts until which the *direct* IP is considered blocked.
+        # While blocked we go straight to proxies; after it expires we re-probe
+        # direct so the client auto-recovers when a temporary ban lifts.
+        self._blocked_until: dict[str, float] = {}
+        self._block_lock = threading.Lock()
+
+    # -- host block bookkeeping -------------------------------------------
+    @staticmethod
+    def _host(url: str) -> str:
+        try:
+            from urllib.parse import urlsplit
+            return (urlsplit(url).hostname or "").lower()
+        except Exception:
+            return ""
+
+    def _direct_blocked(self, host: str) -> bool:
+        if not host:
+            return False
+        with self._block_lock:
+            exp = self._blocked_until.get(host)
+            if not exp:
+                return False
+            if time.time() >= exp:
+                # cooldown elapsed -> allow a direct re-probe
+                self._blocked_until.pop(host, None)
+                return False
+            return True
+
+    def _mark_blocked(self, host: str):
+        if not host:
+            return
+        with self._block_lock:
+            self._blocked_until[host] = time.time() + max(1, SETTINGS.block_cooldown_sec)
+
+    def _clear_block(self, host: str):
+        if not host:
+            return
+        with self._block_lock:
+            self._blocked_until.pop(host, None)
+
+    def host_blocked(self, host: str) -> bool:
+        return self._direct_blocked((host or "").lower())
 
     # -- session management (thread-local) ---------------------------------
     def _session(self):
@@ -161,15 +203,23 @@ class HttpClient:
         if delay:
             time.sleep(delay)
 
+        host = self._host(url)
         attempts: list[Resp] = []
+        # if the direct IP is in a block cooldown for this host, skip straight
+        # to proxies (still re-probes direct automatically once it expires)
+        skip_direct = force_proxy or (bool(self.pool) and self._direct_blocked(host))
 
-        # 1) proxyless first (unless caller forces proxy)
-        if not force_proxy:
+        # 1) proxyless first (unless forced or host is in direct-block cooldown)
+        if not skip_direct:
             r = self._attempt(method, url, None, allow_redirects=allow_redirects,
                               timeout=timeout, **kw)
             if not r.blocked and not r.error:
+                self._clear_block(host)
                 return r
             attempts.append(r)
+            # remember that the direct IP is blocked for this host
+            if r.blocked and self.pool:
+                self._mark_blocked(host)
 
         # 2) rotate through proxy pool
         if self.pool:
