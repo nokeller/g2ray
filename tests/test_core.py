@@ -337,11 +337,12 @@ def test_harvest_domain_paginates_via_resumekey():
         on_rows=lambda rows: collected.extend(r["original"] for r in rows),
         get_cursor=lambda k: cursors.get(k),
         set_cursor=lambda k, v: cursors.__setitem__(k, v),
-        log=lambda *a: None, should_stop=lambda: False)
+        log=lambda *a: None, should_stop=lambda: False,
+        from_year=2024, to_year=2024)
     assert total == 3
     assert collected == ["https://adjust.com/a", "https://app.adjust.com/b",
                          "https://adjust.com/c"]
-    assert cursors.get("dom:done") == "1"
+    assert cursors.get("dom:y2024:done") == "1"
 
 
 def test_juicy_capture_map_keeps_representative_url():

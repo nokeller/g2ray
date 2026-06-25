@@ -191,12 +191,12 @@ def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
         url = CDX + "?" + "&".join(params)
         r = None
         for attempt in range(6):
-            r = client.get(url, timeout=120)
+            r = client.get(url, timeout=90, force_proxy=(attempt >= 1))
             if r.ok and r.text.strip():
                 break
             if r.ok and not r.text.strip():
                 break
-            time.sleep(min(2 ** attempt, 15))
+            time.sleep(min(2 ** attempt, 12))
         if r is None or not r.ok:
             if log:
                 log("warn", f"juicy-cdx: page failed ({getattr(r,'status',0)} "
@@ -249,73 +249,91 @@ def harvest_domain(client: HttpClient, root: str, *,
                    should_stop: Callable[[], bool],
                    from_year: int = 0, to_year: int = 0,
                    batch: int = 50000, max_rows: int = 0) -> int:
-    """Domain-wide CDX harvest of EVERY url via resumeKey pagination.
+    """Domain-wide CDX harvest of EVERY url, iterated PER YEAR (newest first)
+    via resumeKey pagination.
 
-    This is the reliable archive backbone: ``matchType=domain`` + ``collapse=
-    urlkey`` + ``showResumeKey`` streams every unique URL for ``*.root`` and is
-    NOT throttled on datacenter IPs the way waymore's page-mode wayback is
-    (verified: 50k urls/page in seconds vs. page-mode 503s). HttpClient retries
-    blocked pages through proxies; a resume cursor lets a killed job continue.
+    Why per-year: a single domain-wide resumeKey stream works great until a very
+    deep offset (~1M+ rows), where archive.org stalls datacenter IPs (accepts
+    the connection then hangs). Slicing by year keeps every result set shallow,
+    matches the "resume per year" design, and still yields every URL once
+    (in-memory dedup collapses the same URL seen across multiple years).
+    ``matchType=domain`` covers all subdomains; HttpClient escalates blocked/
+    stalled pages to proxies; a per-year cursor lets a killed job resume.
     """
     from urllib.parse import quote
-    resume = get_cursor("dom:resume") or None
-    if get_cursor("dom:done") == "1":
-        log("info", "cdx-domain: previously completed; re-streaming for new captures")
-        set_cursor("dom:done", "0")
-        resume = None
+    import datetime as _dt
+    now_year = _dt.datetime.now(_dt.timezone.utc).year
+    fy = from_year or 1996          # wayback machine inception
+    ty = to_year or now_year
+    seen_urls: set[str] = set()
     total = 0
-    pages = 0
-    empties = 0
-    while not should_stop():
-        params = [
-            f"url={root}", "matchType=domain", "output=json",
-            "fl=original,timestamp,statuscode,mimetype,digest",
-            "collapse=urlkey", f"limit={batch}", "showResumeKey=true",
-        ]
-        if from_year:
-            params.append(f"from={from_year}0101000000")
-        if to_year:
-            params.append(f"to={to_year}1231235959")
-        if resume:
-            params.append("resumeKey=" + quote(resume, safe=""))
-        url = CDX + "?" + "&".join(params)
-        r = None
-        for attempt in range(6):
-            if should_stop():
-                return total
-            r = client.get(url, timeout=180)
-            if r.ok and r.text.strip():
-                break
-            if r.ok and not r.text.strip():
-                break
-            time.sleep(min(2 ** attempt, 20))
-        if r is None or not r.ok:
-            log("warn", f"cdx-domain: page failed status={getattr(r,'status',0)} "
-                        f"{getattr(getattr(r,'waf',None),'reason','')}; cursor saved, resumable")
+    for year in range(ty, fy - 1, -1):     # newest first = most relevant
+        if should_stop():
+            break
+        if get_cursor(f"dom:y{year}:done") == "1":
+            continue
+        resume = get_cursor(f"dom:y{year}:resume") or None
+        year_total = 0
+        ypages = 0
+        while not should_stop():
+            params = [
+                f"url={root}", "matchType=domain", "output=json",
+                "fl=original,timestamp,statuscode,mimetype,digest",
+                "collapse=urlkey", f"limit={batch}", "showResumeKey=true",
+                f"from={year}0101000000", f"to={year}1231235959",
+            ]
             if resume:
-                set_cursor("dom:resume", resume)
-            break
-        rows, nxt = _parse_cdx_json(r.text)
-        if rows:
-            on_rows(rows)
-            total += len(rows)
-        else:
-            empties += 1
-        pages += 1
-        if log:
-            log("info", f"cdx-domain: page {pages} (+{len(rows)}), total={total}")
-        if not nxt:
-            set_cursor("dom:done", "1")
-            set_cursor("dom:resume", "")
-            break
-        resume = nxt
-        set_cursor("dom:resume", resume)
-        if max_rows and total >= max_rows:
-            log("warn", f"cdx-domain: reached max_rows cap {max_rows}; cursor saved")
-            break
-        if empties > 3:
-            break
-        time.sleep(0.15)
+                params.append("resumeKey=" + quote(resume, safe=""))
+            url = CDX + "?" + "&".join(params)
+            r = None
+            for attempt in range(6):
+                if should_stop():
+                    return total
+                # escalate to proxy fast: archive.org stalls deep pages from
+                # datacenter IPs, so don't burn a long direct timeout each retry.
+                r = client.get(url, timeout=60, force_proxy=(attempt >= 1))
+                if r.ok and r.text.strip():
+                    break
+                if r.ok and not r.text.strip():
+                    break
+                time.sleep(min(2 ** attempt, 12))
+            if r is None or not r.ok:
+                log("warn", f"cdx-domain {year}: page failed "
+                            f"status={getattr(r,'status',0)} "
+                            f"{getattr(getattr(r,'waf',None),'reason','')}; "
+                            f"cursor saved, resumable")
+                if resume:
+                    set_cursor(f"dom:y{year}:resume", resume)
+                break
+            rows, nxt = _parse_cdx_json(r.text)
+            new_rows = []
+            for row in rows:
+                u = row.get("original")
+                if not u or u in seen_urls:
+                    continue
+                seen_urls.add(u)
+                new_rows.append(row)
+            if new_rows:
+                on_rows(new_rows)
+                total += len(new_rows)
+                year_total += len(new_rows)
+            ypages += 1
+            if ypages % 3 == 0:
+                log("info", f"cdx-domain {year}: page {ypages}, "
+                            f"+{year_total} new (grand {total})")
+            if not nxt:
+                set_cursor(f"dom:y{year}:done", "1")
+                set_cursor(f"dom:y{year}:resume", "")
+                break
+            resume = nxt
+            set_cursor(f"dom:y{year}:resume", resume)
+            if max_rows and total >= max_rows:
+                log("warn", f"cdx-domain: reached max_rows cap {max_rows}; cursor saved")
+                return total
+            time.sleep(0.15)
+        if year_total or ypages:
+            log("info", f"cdx-domain {year}: +{year_total} new urls "
+                        f"(grand total {total})")
     return total
 
 

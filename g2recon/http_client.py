@@ -206,8 +206,10 @@ class HttpClient:
         host = self._host(url)
         attempts: list[Resp] = []
         # if the direct IP is in a block cooldown for this host, skip straight
-        # to proxies (still re-probes direct automatically once it expires)
-        skip_direct = force_proxy or (bool(self.pool) and self._direct_blocked(host))
+        # to proxies (still re-probes direct automatically once it expires).
+        # force_proxy only skips direct when a proxy pool actually exists, so a
+        # proxyless deploy never ends up making zero attempts.
+        skip_direct = bool(self.pool) and (force_proxy or self._direct_blocked(host))
 
         # 1) proxyless first (unless forced or host is in direct-block cooldown)
         if not skip_direct:
