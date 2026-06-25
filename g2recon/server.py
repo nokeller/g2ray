@@ -28,7 +28,7 @@ from .worker import get_manager
 WEB_DIR = Path(__file__).resolve().parent / "web"
 COOKIE = "g2r_session"
 
-app = FastAPI(title="g2recon", version="1.1.0")
+app = FastAPI(title="g2recon", version="1.2.0")
 
 
 @app.on_event("startup")

@@ -61,12 +61,26 @@ responses and records them. You may configure operator-provided proxies in the U
 for retrying blocked requests; proxy credentials are stored only in
 `data/config.json` on your server and are masked in the API/UI.
 
+> **Proxies are effectively required for the wayback step at scale.** archive.org
+> aggressively rate-limits datacenter IPs (HTTP 429) and will return almost no
+> data from a bare VPS. Configure residential/rotating proxies in Settings; the
+> client tries direct first, then — once a host blocks the direct IP — switches
+> to *proxy-first* for that host (180s cooldown) so it stops wasting guaranteed
+> 429s. Stopped jobs resume from per-host/per-year cursors.
+
 Supported proxy formats:
 
 ```text
 host:port:user:pass
 scheme://user:pass@host:port
 ```
+
+### Scope / cost controls (run dialog)
+
+Large targets produce tens of thousands of URLs, so the heavy steps are bounded
+and tunable per run: `wayback workers`, `refl. URLs`, `refl. params`,
+`open-redirect URLs`, `live-check URLs`, and `fuzz dirs`. Raise them for an
+exhaustive run, lower them for a quick pass. Set a value to its max for "all".
 
 ## Exports
 

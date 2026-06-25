@@ -129,6 +129,29 @@ def test_open_redirect_scanner_detects_location_canary():
     assert CANARY in found[0]["location"]
 
 
+def test_open_redirect_ignores_same_site_reflection_false_positive():
+    """Canary URL-encoded inside a query param of a same-site redirect is NOT
+    an open redirect and must not be reported."""
+    class Client:
+        def get(self, url, **_):
+            # 308 back to the same host with the payload echoed (encoded) in a param
+            return FakeResp(
+                308,
+                headers={"location": "https://www.adjust.com/blog/?utm_source=https%3A%2F%2F" + CANARY},
+            )
+
+    found = []
+    OpenRedirectScanner(Client()).scan(
+        ["https://www.adjust.com/blog?utm_source=x"],
+        found.append,
+        lambda *_: None,
+        lambda: False,
+        workers=1,
+    )
+
+    assert found == []
+
+
 def test_downloader_saves_file_and_parent_mapping(tmp_path):
     class Client:
         def get(self, url, **_):

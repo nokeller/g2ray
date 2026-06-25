@@ -16,6 +16,7 @@ import json
 import re
 import shutil
 import subprocess
+import time
 from typing import Callable
 
 from .. import util
@@ -48,9 +49,16 @@ def from_subindex_import(text: str, root: str) -> set[str]:
 def from_crtsh(root: str, client: HttpClient, log: LogFn) -> set[str]:
     out: set[str] = set()
     url = f"https://crt.sh/?q=%25.{root}&output=json"
-    r = client.get(url, timeout=40)
-    if not r.ok or not r.text:
-        log("warn", f"crt.sh returned status={r.status} {r.waf.reason}")
+    # crt.sh is frequently overloaded (timeouts / 502); retry a few times.
+    r = None
+    for attempt in range(4):
+        r = client.get(url, timeout=45)
+        if r.ok and r.text.strip():
+            break
+        log("warn", f"crt.sh attempt {attempt+1}/4 status={r.status} {r.waf.reason or r.error[:60]}")
+        time.sleep(min(2 ** attempt, 8))
+    if r is None or not r.ok or not r.text:
+        log("warn", "crt.sh unavailable - skipping (other sources / paste still apply)")
         return out
     data = None
     try:
