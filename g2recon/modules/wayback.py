@@ -153,6 +153,7 @@ def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
                       batch: int = 8000, max_caps_per_url: int = 25,
                       from_year: int = 0, to_year: int = 0,
                       max_rows: int = 600000,
+                      time_budget: int = 240,
                       log: LogFn | None = None,
                       should_stop: Callable[[], bool] | None = None,
                       get_cursor: Callable[[str], Optional[str]] | None = None,
@@ -179,7 +180,19 @@ def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
     resume: Optional[str] = get_cursor("jcap:resume") or None
     total = 0
     pages = 0
+    # hard wall-clock budget: archive.org's filtered CDX query can HANG (accept
+    # the connection then trickle), so without a deadline the whole files step
+    # stalls. The DB-juicy url set is the primary download target anyway; the
+    # cap_map is a best-effort enrichment, so bound it and move on.
+    deadline = time.time() + max(30, time_budget)
     while not should_stop():
+        if time.time() > deadline:
+            if log:
+                log("info", f"juicy-cdx: time budget {time_budget}s reached; "
+                            f"keeping {len(cap_map)} files mapped")
+            if resume:
+                set_cursor("jcap:resume", resume)
+            break
         base_params = [
             f"url={root}", "matchType=domain", "output=json",
             "fl=original,timestamp,digest,statuscode,mimetype",
@@ -197,10 +210,10 @@ def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
         # slow server-side, so smaller pages stay under the timeout and complete
         # reliably through residential proxies. (batch, force_proxy, timeout)
         small = len(cap_map) > 1500
-        attempts = ([(batch, False, 30), (4000, True, 60), (2000, True, 70)]
+        attempts = ([(batch, False, 25), (4000, True, 35), (2000, True, 40)]
                     if small else
-                    [(batch, False, 30), (4000, True, 60), (2000, True, 70),
-                     (2000, True, 80), (1000, True, 80)])
+                    [(batch, False, 25), (4000, True, 35), (2000, True, 40),
+                     (2000, True, 45), (1000, True, 45)])
         for ai, (b, fp, to) in enumerate(attempts):
             if should_stop():
                 break
@@ -286,6 +299,7 @@ def harvest_domain(client: HttpClient, root: str, *,
     seen_urls: set[str] = set()
     total = 0
     global_fail = 0
+    empty_streak = 0
     for year in range(ty, fy - 1, -1):     # newest first = most relevant
         if should_stop():
             break
@@ -376,6 +390,18 @@ def harvest_domain(client: HttpClient, root: str, *,
         if year_total or ypages:
             log("info", f"cdx-domain {year}: +{year_total} new urls "
                         f"(grand total {total})")
+        # Years are walked newest->oldest; once several consecutive years add no
+        # NEW urls, the older tail is fully dedup-covered (or hard-throttled) and
+        # grinding it wastes time. Stop CDX (waymore still runs afterwards).
+        if year_total == 0:
+            empty_streak += 1
+            if empty_streak >= 4:
+                log("info", f"cdx-domain: {empty_streak} consecutive years with "
+                            f"no new urls (older tail exhausted/throttled); "
+                            f"stopping CDX at {year}")
+                break
+        else:
+            empty_streak = 0
     return total
 
 

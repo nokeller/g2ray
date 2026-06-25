@@ -293,6 +293,7 @@ class PipelineRunner:
                 self.client, self.root, exts=exts,
                 max_caps_per_url=(max_caps or 0) if timetravel else 1,
                 from_year=from_year, to_year=to_year,
+                time_budget=int(self.options.get("cap_map_budget_sec", 240)),
                 log=lambda lvl, m: self.log(lvl, "files", m),
                 should_stop=self.should_stop,
                 get_cursor=lambda k: self._cursor_get(jpfx + k),
