@@ -81,13 +81,13 @@ fi
 
 echo "==> initialising config (data/config.json)"
 mkdir -p data wordlists
-G2RECON_ADMIN_USER="$ADMIN_USER" \
-${ADMIN_PASS:+G2RECON_ADMIN_PASSWORD="$ADMIN_PASS"} \
-${URLSCAN_KEY:+G2RECON_URLSCAN_KEY="$URLSCAN_KEY"} \
-${OTX_KEY:+G2RECON_OTX_KEY="$OTX_KEY"} \
-${VT_KEY:+G2RECON_VIRUSTOTAL_KEY="$VT_KEY"} \
-${INTELX_KEY:+G2RECON_INTELX_KEY="$INTELX_KEY"} \
-  python -c "import g2recon.config" >/dev/null
+env G2RECON_ADMIN_USER="$ADMIN_USER" \
+    ${ADMIN_PASS:+G2RECON_ADMIN_PASSWORD="$ADMIN_PASS"} \
+    ${URLSCAN_KEY:+G2RECON_URLSCAN_KEY="$URLSCAN_KEY"} \
+    ${OTX_KEY:+G2RECON_OTX_KEY="$OTX_KEY"} \
+    ${VT_KEY:+G2RECON_VIRUSTOTAL_KEY="$VT_KEY"} \
+    ${INTELX_KEY:+G2RECON_INTELX_KEY="$INTELX_KEY"} \
+    python -c "import g2recon.config" >/dev/null
 if [[ -z "$ADMIN_PASS" ]]; then
   echo "    random password written to data/INITIAL_PASSWORD.txt"
 else
