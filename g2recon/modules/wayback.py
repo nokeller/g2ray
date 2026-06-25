@@ -194,18 +194,18 @@ def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
             params.append("resumeKey=" + quote(resume, safe=""))
         url = CDX + "?" + "&".join(params)
         r = None
-        for attempt in range(4):
+        for attempt in range(3):
             if should_stop():
                 break
-            # fast-fail: short direct probe, then proxy; archive.org stalls deep
-            # filtered pages on datacenter IPs but we already have ~all files.
-            r = client.get(url, timeout=(25 if attempt == 0 else 50),
-                           force_proxy=(attempt >= 1))
+            # fast-fail: short direct probe, then one proxy; archive.org stalls
+            # deep filtered pages on datacenter IPs but we already have ~all files.
+            r = client.get(url, timeout=(20 if attempt == 0 else 40),
+                           force_proxy=(attempt >= 1), max_proxy_tries=1)
             if r.ok and r.text.strip():
                 break
             if r.ok and not r.text.strip():
                 break
-            time.sleep(min(2 ** attempt, 8))
+            time.sleep(min(2 ** attempt, 6))
         if r is None or not r.ok:
             if log:
                 log("warn", f"juicy-cdx: page failed ({getattr(r,'status',0)} "
@@ -298,18 +298,19 @@ def harvest_domain(client: HttpClient, root: str, *,
                 params.append("resumeKey=" + quote(resume, safe=""))
             url = CDX + "?" + "&".join(params)
             r = None
-            for attempt in range(6):
+            for attempt in range(3):
                 if should_stop():
                     return total
                 # escalate to proxy fast: archive.org stalls deep pages from
-                # datacenter IPs, so don't burn a long direct timeout each retry.
-                r = client.get(url, timeout=(25 if attempt == 0 else 60),
-                               force_proxy=(attempt >= 1))
+                # datacenter IPs. Bound each call's proxy rotation so a failing
+                # page can't burn pool_size * timeout repeatedly.
+                r = client.get(url, timeout=(25 if attempt == 0 else 45),
+                               force_proxy=(attempt >= 1), max_proxy_tries=1)
                 if r.ok and r.text.strip():
                     break
                 if r.ok and not r.text.strip():
                     break
-                time.sleep(min(2 ** attempt, 12))
+                time.sleep(min(2 ** attempt, 8))
             if r is None or not r.ok:
                 log("warn", f"cdx-domain {year}: page failed "
                             f"status={getattr(r,'status',0)} "

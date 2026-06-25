@@ -52,7 +52,7 @@ def from_crtsh(root: str, client: HttpClient, log: LogFn) -> set[str]:
     r = None
     for attempt in range(4):
         # crt.sh frequently 502/503s; retry with backoff and escalate to proxy
-        r = client.get(url, timeout=60, force_proxy=(attempt >= 2))
+        r = client.get(url, timeout=60, force_proxy=(attempt >= 2), max_proxy_tries=1)
         if r.ok and r.text.strip():
             break
         _t.sleep(min(2 ** attempt, 8))
@@ -111,7 +111,7 @@ def from_wayback(root: str, client: HttpClient, log: LogFn) -> set[str]:
     r = None
     for attempt in range(3):
         r = client.get(url, timeout=(25 if attempt == 0 else 45),
-                       force_proxy=(attempt >= 1))
+                       force_proxy=(attempt >= 1), max_proxy_tries=1)
         if r.ok and r.text.strip():
             break
         _t.sleep(min(2 ** attempt, 6))

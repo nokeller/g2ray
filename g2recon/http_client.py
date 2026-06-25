@@ -198,7 +198,7 @@ class HttpClient:
 
     # -- public request with full fallback ---------------------------------
     def request(self, method: str, url: str, *, allow_redirects=True,
-                timeout=None, force_proxy=False, **kw) -> Resp:
+                timeout=None, force_proxy=False, max_proxy_tries=None, **kw) -> Resp:
         delay = SETTINGS.request_delay_ms / 1000.0
         if delay:
             time.sleep(delay)
@@ -223,10 +223,14 @@ class HttpClient:
             if r.blocked and self.pool:
                 self._mark_blocked(host)
 
-        # 2) rotate through proxy pool
+        # 2) rotate through proxy pool (bounded by max_proxy_tries so a stalled
+        #    host can't burn pool_size * timeout on a single call)
         if self.pool:
             tried = 0
-            limit = max(len(self.pool.all), SETTINGS.max_retries)
+            if max_proxy_tries is not None:
+                limit = max(1, max_proxy_tries)
+            else:
+                limit = max(len(self.pool.all), SETTINGS.max_retries)
             while tried < limit:
                 proxy = self.pool.next()
                 tried += 1
