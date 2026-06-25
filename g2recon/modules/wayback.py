@@ -152,104 +152,97 @@ def _cap_key(url: str) -> str:
 def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
                       batch: int = 20000, max_caps_per_url: int = 25,
                       from_year: int = 0, to_year: int = 0,
-                      max_rows: int = 3_000_000,
+                      max_rows: int = 600000,
                       log: LogFn | None = None,
                       should_stop: Callable[[], bool] | None = None,
                       get_cursor: Callable[[str], Optional[str]] | None = None,
                       set_cursor: Callable[[str, str], None] | None = None) -> dict[str, dict]:
     """Build {host+path: {"url": original, "caps": [timestamps...]}} for every
-    juicy-file capture of a whole domain, iterated PER YEAR (newest first) via
-    resumeKey pagination.
+    juicy-file capture of a whole domain via ONE filtered resumeKey CDX stream.
 
-    Per-year slicing (like harvest_domain) keeps each result set shallow so
-    archive.org never stalls a deep datacenter offset, and naturally yields the
-    time-travel capture set per file. Captures are de-duplicated per file by
-    content digest and capped newest-first. A representative original URL is kept
-    per file so the downloader can fetch files discovered here even if they never
-    appeared as a standalone URL row. Resumable via per-year cursors.
+    The ext-filter keeps this set small (a few tens of thousands of files for a
+    big target), so a single stream collects ~all files in a handful of pages
+    and then breaks fast on the eventual deep-offset stall (keeping everything
+    gathered). Fast-fail: short direct timeout, escalate to proxy, then bail and
+    return partial. Captures are digest-deduped per file and capped newest-first.
+    A representative original URL is kept per file so the downloader can fetch
+    files found here even if they never appeared as a standalone URL row.
+    Resumable via a single cursor.
     """
     from urllib.parse import quote
-    import datetime as _dt
     should_stop = should_stop or (lambda: False)
     get_cursor = get_cursor or (lambda k: None)
     set_cursor = set_cursor or (lambda k, v: None)
     ext_re = "|".join(re.escape(e) for e in exts)
-    now_year = _dt.datetime.now(_dt.timezone.utc).year
-    fy = from_year or 2010              # juicy assets realistically from ~2010
-    ty = to_year or now_year
     cap_map: dict[str, dict] = {}
     seen_digest: dict[str, set[str]] = {}
+    resume: Optional[str] = get_cursor("jcap:resume") or None
     total = 0
-    for year in range(ty, fy - 1, -1):
-        if should_stop() or (max_rows and total >= max_rows):
-            break
-        if get_cursor(f"jcap:y{year}:done") == "1":
-            continue
-        resume: Optional[str] = get_cursor(f"jcap:y{year}:resume") or None
-        ypages = 0
-        while not should_stop():
-            params = [
-                f"url={root}", "matchType=domain", "output=json",
-                "fl=original,timestamp,digest,statuscode,mimetype",
-                f"filter=urlkey:.*[.](?:{ext_re})(?:[?].*)?$",
-                f"limit={batch}", "showResumeKey=true",
-                f"from={year}0101000000", f"to={year}1231235959",
-            ]
+    pages = 0
+    while not should_stop():
+        params = [
+            f"url={root}", "matchType=domain", "output=json",
+            "fl=original,timestamp,digest,statuscode,mimetype",
+            f"filter=urlkey:.*[.](?:{ext_re})(?:[?].*)?$",
+            f"limit={batch}", "showResumeKey=true",
+        ]
+        if from_year:
+            params.append(f"from={from_year}0101000000")
+        if to_year:
+            params.append(f"to={to_year}1231235959")
+        if resume:
+            params.append("resumeKey=" + quote(resume, safe=""))
+        url = CDX + "?" + "&".join(params)
+        r = None
+        for attempt in range(4):
+            if should_stop():
+                break
+            # fast-fail: short direct probe, then proxy; archive.org stalls deep
+            # filtered pages on datacenter IPs but we already have ~all files.
+            r = client.get(url, timeout=(25 if attempt == 0 else 50),
+                           force_proxy=(attempt >= 1))
+            if r.ok and r.text.strip():
+                break
+            if r.ok and not r.text.strip():
+                break
+            time.sleep(min(2 ** attempt, 8))
+        if r is None or not r.ok:
+            if log:
+                log("warn", f"juicy-cdx: page failed ({getattr(r,'status',0)} "
+                            f"{getattr(getattr(r,'waf',None),'reason','')}); "
+                            f"keeping {len(cap_map)} files mapped")
             if resume:
-                params.append("resumeKey=" + quote(resume, safe=""))
-            url = CDX + "?" + "&".join(params)
-            r = None
-            for attempt in range(6):
-                if should_stop():
-                    break
-                r = client.get(url, timeout=60, force_proxy=(attempt >= 1))
-                if r.ok and r.text.strip():
-                    break
-                if r.ok and not r.text.strip():
-                    break
-                time.sleep(min(2 ** attempt, 12))
-            if r is None or not r.ok:
-                if log:
-                    log("warn", f"juicy-cdx {year}: page failed "
-                                f"({getattr(r,'status',0)} "
-                                f"{getattr(getattr(r,'waf',None),'reason','')}); "
-                                f"cursor saved, {len(cap_map)} files so far")
-                if resume:
-                    set_cursor(f"jcap:y{year}:resume", resume)
-                break
-            rows, nxt = _parse_cdx_json(r.text)
-            for row in rows:
-                o = row.get("original")
-                ts = row.get("timestamp")
-                dg = row.get("digest") or ts
-                if not o or not ts:
-                    continue
-                key = _cap_key(o)
-                ds = seen_digest.setdefault(key, set())
-                if dg in ds:
-                    continue
-                ds.add(dg)
-                ent = cap_map.get(key)
-                if ent is None:
-                    ent = {"url": o, "caps": []}
-                    cap_map[key] = ent
-                if o.startswith("https://") and not ent["url"].startswith("https://"):
-                    ent["url"] = o
-                ent["caps"].append(ts)
-                total += 1
-            ypages += 1
-            if log and ypages % 5 == 0:
-                log("info", f"juicy-cdx {year}: page {ypages}, "
-                            f"{len(cap_map)} files, {total} captures")
-            if not nxt:
-                set_cursor(f"jcap:y{year}:done", "1")
-                set_cursor(f"jcap:y{year}:resume", "")
-                break
-            resume = nxt
-            set_cursor(f"jcap:y{year}:resume", resume)
-            if max_rows and total >= max_rows:
-                break
-            time.sleep(0.15)
+                set_cursor("jcap:resume", resume)
+            break
+        rows, nxt = _parse_cdx_json(r.text)
+        for row in rows:
+            o = row.get("original")
+            ts = row.get("timestamp")
+            dg = row.get("digest") or ts
+            if not o or not ts:
+                continue
+            key = _cap_key(o)
+            ds = seen_digest.setdefault(key, set())
+            if dg in ds:
+                continue
+            ds.add(dg)
+            ent = cap_map.get(key)
+            if ent is None:
+                ent = {"url": o, "caps": []}
+                cap_map[key] = ent
+            if o.startswith("https://") and not ent["url"].startswith("https://"):
+                ent["url"] = o
+            ent["caps"].append(ts)
+            total += 1
+        pages += 1
+        if log and pages % 3 == 0:
+            log("info", f"juicy-cdx: {pages} pages, {len(cap_map)} files, {total} captures")
+        if not nxt or total >= max_rows:
+            set_cursor("jcap:resume", "")
+            break
+        resume = nxt
+        set_cursor("jcap:resume", resume)
+        time.sleep(0.15)
     # newest-first + cap per file
     for key, ent in cap_map.items():
         ent["caps"].sort(reverse=True)
@@ -310,7 +303,8 @@ def harvest_domain(client: HttpClient, root: str, *,
                     return total
                 # escalate to proxy fast: archive.org stalls deep pages from
                 # datacenter IPs, so don't burn a long direct timeout each retry.
-                r = client.get(url, timeout=60, force_proxy=(attempt >= 1))
+                r = client.get(url, timeout=(25 if attempt == 0 else 60),
+                               force_proxy=(attempt >= 1))
                 if r.ok and r.text.strip():
                     break
                 if r.ok and not r.text.strip():

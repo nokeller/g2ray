@@ -56,7 +56,7 @@ class Settings:
     use_proxy_only_on_block: bool = True   # proxyless first, operator-provided proxy on block/rate-limit
     # once a host blocks the direct IP, route it through proxies for this long
     # before re-testing the direct IP again (auto-recovers when the ban lifts)
-    block_cooldown_sec: int = 180
+    block_cooldown_sec: int = 300
 
     # api keys (passive sources / waymore). NEVER committed; live in data/config.json
     urlscan_api_key: str = ""

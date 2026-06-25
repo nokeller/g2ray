@@ -101,11 +101,23 @@ def from_subfinder(root: str, log: LogFn) -> set[str]:
 
 def from_wayback(root: str, client: HttpClient, log: LogFn) -> set[str]:
     out: set[str] = set()
+    # bounded + fast-fail: archive.org stalls the heavy *.domain/* wildcard from
+    # datacenter IPs. We keep it light and escalate to proxy; the main archive
+    # step's backfill_subdomains covers every host from the full URL harvest
+    # anyway, so this source is best-effort.
     url = (f"https://web.archive.org/cdx/search/cdx?url=*.{root}/*"
-           f"&output=text&fl=original&collapse=urlkey&limit=200000")
-    r = client.get(url, timeout=60)
-    if not r.ok:
-        log("warn", f"wayback host pull status={r.status} {r.waf.reason}")
+           f"&output=text&fl=original&collapse=urlkey&limit=40000")
+    import time as _t
+    r = None
+    for attempt in range(3):
+        r = client.get(url, timeout=(25 if attempt == 0 else 45),
+                       force_proxy=(attempt >= 1))
+        if r.ok and r.text.strip():
+            break
+        _t.sleep(min(2 ** attempt, 6))
+    if r is None or not r.ok:
+        log("warn", f"wayback host pull status={getattr(r,'status',0)} "
+                    f"{getattr(getattr(r,'waf',None),'reason','')} (backfill covers this)")
         return out
     for line in r.text.splitlines():
         h = util.host_of(line.strip())
