@@ -150,7 +150,7 @@ def _cap_key(url: str) -> str:
 
 
 def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
-                      batch: int = 20000, max_caps_per_url: int = 25,
+                      batch: int = 8000, max_caps_per_url: int = 25,
                       from_year: int = 0, to_year: int = 0,
                       max_rows: int = 600000,
                       log: LogFn | None = None,
@@ -194,18 +194,22 @@ def juicy_capture_map(client: HttpClient, root: str, *, exts: list[str],
             params.append("resumeKey=" + quote(resume, safe=""))
         url = CDX + "?" + "&".join(params)
         r = None
-        for attempt in range(3):
+        # persistent retries while the map is still small (early pages hold the
+        # most files and must not be lost to a transient archive.org drop);
+        # fast-fail once we have plenty (deep-offset stalls). The ext-regex
+        # filter is slow server-side, so keep page size modest to stay under the
+        # timeout.
+        max_attempt = 3 if len(cap_map) > 1500 else 5
+        for attempt in range(max_attempt):
             if should_stop():
                 break
-            # fast-fail: short direct probe, then one proxy; archive.org stalls
-            # deep filtered pages on datacenter IPs but we already have ~all files.
-            r = client.get(url, timeout=(20 if attempt == 0 else 40),
+            r = client.get(url, timeout=(30 if attempt == 0 else 50),
                            force_proxy=(attempt >= 1), max_proxy_tries=1)
             if r.ok and r.text.strip():
                 break
             if r.ok and not r.text.strip():
                 break
-            time.sleep(min(2 ** attempt, 6))
+            time.sleep(min(3 * (attempt + 1), 12))
         if r is None or not r.ok:
             if log:
                 log("warn", f"juicy-cdx: page failed ({getattr(r,'status',0)} "

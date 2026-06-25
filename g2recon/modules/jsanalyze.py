@@ -73,12 +73,38 @@ _SECRET_RULES: list[tuple[str, re.Pattern, str]] = [
 
 _NEW_FILE_EXT = util.JUICY_EXT  # what we recurse into
 
+# Endpoint extraction noise: XML/RDF namespaces and bare MIME-type tokens that
+# the LinkFinder regex picks up from RSS/Atom feeds, SVG and CSS but which are
+# not real endpoints.
+_NOISE_HOSTS = {
+    "www.w3.org", "w3.org", "purl.org", "schema.org", "ns.adobe.com",
+    "gmpg.org", "ogp.me", "creativecommons.org", "xmlns.com", "www.iso.org",
+    "relaxng.org", "docbook.org", "www.gnu.org", "json-schema.org",
+    "www.inkscape.org", "sodipodi.sourceforge.net", "validator.w3.org",
+}
+_MIME_TOKEN_RE = re.compile(
+    r"^(?:text|image|audio|video|application|font|multipart|message|model|chemical)"
+    r"/[a-z0-9][a-z0-9.+-]*$", re.I)
+
+
+def _is_noise_link(link: str) -> bool:
+    l = (link or "").strip().strip("'\"`")
+    if not l:
+        return True
+    if _MIME_TOKEN_RE.match(l):                 # text/css, application/json …
+        return True
+    if l.startswith(("http://", "https://", "//")):
+        h = util.host_of(l).lower()
+        if h in _NOISE_HOSTS:
+            return True
+    return False
+
 
 def extract_links(content: str) -> set[str]:
     out: set[str] = set()
     for m in _LINK_RE.finditer(content or ""):
         link = m.group(1)
-        if link:
+        if link and not _is_noise_link(link):
             out.add(link.strip())
     return out
 

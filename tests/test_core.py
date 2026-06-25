@@ -360,3 +360,25 @@ def test_juicy_capture_map_keeps_representative_url():
     key = wayback._cap_key("https://cdn.adjust.com/x.js")
     assert cap[key]["url"].startswith("https://")   # prefers https original
     assert len(cap[key]["caps"]) == 2
+
+
+def test_openredirect_only_flags_canary_host():
+    from g2recon.modules.openredirect import _redirects_to_canary
+    # genuine redirects to the canary host
+    assert _redirects_to_canary("https://g2r-oob.example")
+    assert _redirects_to_canary("//g2r-oob.example/path")
+    assert _redirects_to_canary("/\\g2r-oob.example")           # browsers treat \\ as /
+    assert _redirects_to_canary("https://localhost.g2r-oob.example")
+    # NOT a redirect to canary: legit host that merely echoes canary in a param
+    assert not _redirects_to_canary(
+        "https://play.google.com/store/apps/details?id=x&referrer=g2r-oob.example")
+    assert not _redirects_to_canary("/relative/path?u=g2r-oob.example")
+
+
+def test_jsanalyze_filters_namespace_and_mime_noise():
+    assert jsanalyze._is_noise_link("text/css")
+    assert jsanalyze._is_noise_link("application/json")
+    assert jsanalyze._is_noise_link("http://www.w3.org/2005/Atom")
+    assert not jsanalyze._is_noise_link("/api/v1/users")
+    assert not jsanalyze._is_noise_link("/smart_banner")
+    assert not jsanalyze._is_noise_link("https://api.adjust.com/track")
