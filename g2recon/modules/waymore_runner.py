@@ -68,9 +68,13 @@ def _waymore_cmd() -> list[str]:
     a PATH lookup. ``python -m waymore`` is NOT a valid fallback: this waymore
     package has no ``__main__`` module, so ``-m`` errors out — only use it as a
     last resort if no console script exists at all."""
-    cand = Path(sys.executable).resolve().parent / "waymore"
-    if cand.exists():
-        return [str(cand)]
+    # NOTE: do NOT resolve() sys.executable — in a venv it is a symlink to the
+    # system python, and resolving it would point at /usr/bin (losing the venv
+    # bin dir where the waymore console-script lives).
+    for cand in (Path(sys.executable).parent / "waymore",
+                 Path(sys.prefix) / "bin" / "waymore"):
+        if cand.exists():
+            return [str(cand)]
     exe = shutil.which("waymore")
     if exe:
         return [exe]
