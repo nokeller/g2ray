@@ -7,7 +7,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from .db import (
     get_session, Target, Subdomain, Url, FileRecord, JsLink, Secret, Param,
-    Reflection, OpenRedirect, LiveResult, FuzzResult, Job, JobLog, Setting,
+    Reflection, OpenRedirect, LiveResult, FuzzResult, Endpoint, Job, JobLog, Setting,
 )
 
 
@@ -114,6 +114,29 @@ def add_fuzzresult(session, target_id: int, rec: dict) -> int:
                           ["target_id", "found_url"])
 
 
+def add_endpoint(session, target_id: int, rec: dict) -> int:
+    row = {
+        "target_id": target_id, "url": rec["url"], "method": rec.get("method", "GET"),
+        "path": rec.get("path", ""), "host": rec.get("host", ""),
+        "source_file": rec.get("source_file", ""),
+        "status_code": rec.get("status_code", 0),
+        "content_type": rec.get("content_type", ""),
+        "content_length": rec.get("content_length", 0),
+        "title": rec.get("title", ""), "allow": rec.get("allow", ""),
+        "host_inferred": bool(rec.get("host_inferred", False)),
+        "via_proxy": bool(rec.get("via_proxy", False)),
+    }
+    stmt = sqlite_insert(Endpoint).values(**row).on_conflict_do_update(
+        index_elements=["target_id", "url", "method"],
+        set_={"status_code": row["status_code"], "content_type": row["content_type"],
+              "content_length": row["content_length"], "title": row["title"],
+              "allow": row["allow"], "source_file": row["source_file"],
+              "host_inferred": row["host_inferred"], "via_proxy": row["via_proxy"]})
+    session.execute(stmt)
+    session.commit()
+    return 1
+
+
 # ---------- job + log ----------
 def reset_orphan_jobs(session) -> int:
     """On startup, any job still 'running'/'queued' has no live thread behind it
@@ -168,4 +191,5 @@ def counts(session, target_id: int) -> dict:
         "openredirects": c(OpenRedirect),
         "live": c(LiveResult),
         "fuzz": c(FuzzResult),
+        "endpoints": c(Endpoint),
     }

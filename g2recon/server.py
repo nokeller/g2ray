@@ -24,7 +24,8 @@ from sqlalchemy import select, func, delete, or_
 from . import config, store, util
 from .config import SETTINGS, save_settings, hash_password, verify_password, WORDLIST_DIR
 from .db import (init_db, get_session, Target, Subdomain, Url, FileRecord, JsLink,
-                 Secret, Param, Reflection, OpenRedirect, LiveResult, FuzzResult, Job, JobLog)
+                 Secret, Param, Reflection, OpenRedirect, LiveResult, FuzzResult,
+                 Endpoint, Job, JobLog)
 from .http_client import get_client
 from .worker import get_manager
 
@@ -248,7 +249,7 @@ async def delete_target(tid: int, user: str = Depends(require_auth)):
         s.close()
         raise HTTPException(404, "not found")
     for model in (Subdomain, Url, FileRecord, JsLink, Secret, Param, Reflection,
-                  OpenRedirect, LiveResult, FuzzResult, JobLog, Job):
+                  OpenRedirect, LiveResult, FuzzResult, Endpoint, JobLog, Job):
         s.execute(delete(model).where(model.target_id == tid))
     slug = t.slug
     s.delete(t)
@@ -426,6 +427,25 @@ async def d_fuzz(tid: int, q: str = "", limit: int = 200, offset: int = 0,
     s.close(); return r
 
 
+@app.get("/api/targets/{tid}/endpoints")
+async def d_endpoints(tid: int, q: str = "", status: int = 0, method: str = "",
+                      inferred: int = -1, limit: int = 200, offset: int = 0,
+                      user: str = Depends(require_auth)):
+    s = get_session()
+    filters = []
+    if status:
+        filters.append(Endpoint.status_code == status)
+    if method:
+        filters.append(Endpoint.method == method.upper())
+    if inferred in (0, 1):
+        filters.append(Endpoint.host_inferred == bool(inferred))
+    r = list_response(s, Endpoint, tid, filters=filters,
+                      search_cols=[Endpoint.url, Endpoint.path, Endpoint.source_file],
+                      q=q, limit=limit, offset=offset,
+                      order_col=Endpoint.status_code, order_desc=False)
+    s.close(); return r
+
+
 # --------------------------------------------------------------------------
 # exports + downloads
 # --------------------------------------------------------------------------
@@ -433,6 +453,7 @@ _EXPORT_MODELS = {
     "subdomains": Subdomain, "urls": Url, "files": FileRecord, "jslinks": JsLink,
     "secrets": Secret, "params": Param, "reflections": Reflection,
     "openredirects": OpenRedirect, "live": LiveResult, "fuzz": FuzzResult,
+    "endpoints": Endpoint,
 }
 
 

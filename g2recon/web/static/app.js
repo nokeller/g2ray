@@ -15,8 +15,9 @@ function el(tag, attrs = {}, ...kids) {
   }
   return e;
 }
-const STEPS = ["subdomains","wayback","files","params","reflection","openredirect","livecheck","fuzz"];
+const STEPS = ["subdomains","wayback","files","endpoints","params","reflection","openredirect","livecheck","fuzz"];
 const SUBSOURCES = ["crtsh","subfinder","wayback","otx","hackertarget","rapiddns"];
+const EPMETHODS = ["GET","OPTIONS","POST","PUT","PATCH","DELETE"];
 
 const state = { user:null, targets:[], current:null, tab:"overview",
   page:{}, q:{}, filters:{}, logsLastId:0, logsTimer:null, pollTimer:null };
@@ -126,7 +127,8 @@ function tabDefs(){return [
   {key:"subdomains",label:"Subdomains",count:"subdomains"},
   {key:"urls",label:"URLs",count:"urls"},
   {key:"files",label:"JS / Juicy",count:"files"},
-  {key:"jslinks",label:"Endpoints",count:"jslinks"},
+  {key:"jslinks",label:"JS Links",count:"jslinks"},
+  {key:"endpoints",label:"API Endpoints",count:"endpoints"},
   {key:"secrets",label:"Secrets",count:"secrets"},
   {key:"params",label:"Parameters",count:"params"},
   {key:"reflections",label:"Reflections",count:"reflections"},
@@ -146,7 +148,8 @@ function renderTab(body){
 function renderOverview(body){
   const c=state.current.counts||{};
   const cards=[["subdomains","Subdomains"],["urls","URLs"],["juicy_urls","Juicy URLs"],
-    ["param_urls","URLs w/ params"],["files","Files"],["jslinks","Endpoints"],
+    ["param_urls","URLs w/ params"],["files","Files"],["jslinks","JS links"],
+    ["endpoints","API endpoints"],
     ["params","Parameters"],["live","Live hosts"],["fuzz","Fuzz hits"]];
   const grid=el("div",{class:"stats"});
   for(const [k,l] of cards) grid.append(el("div",{class:"stat"},el("div",{class:"n"},c[k]||0),el("div",{class:"l"},l)));
@@ -160,6 +163,7 @@ function renderOverview(body){
       masterBtn("subdomains.txt","Subdomains"),
       masterBtn("urls.txt","All URLs"),
       masterBtn("parameters.txt","Parameters"),
+      masterBtn("endpoints.txt","API Endpoints"),
       masterBtn("reflected.txt","Reflected"),
       masterBtn("openredirect.txt","Open redirects")));
   body.append(mf);
@@ -193,6 +197,12 @@ function renderDataTab(body, tab){
                select("variant",["","live","archived"],body,tab));
   }
   if(tab==="jslinks"){ bar.append(select("kind",["","url","file","path"],body,tab)); }
+  if(tab==="endpoints"){
+    bar.append(el("input",{type:"text",placeholder:"status code",style:"width:110px",
+        value:state.filters[tab]?.status||"",oninput:e=>{state.filters[tab]={...(state.filters[tab]||{}),status:e.target.value};state.page[tab]=0;debounceLoad(body,tab);}}),
+      select("method",["","GET","OPTIONS","POST","PUT","PATCH","DELETE"],body,tab),
+      select("inferred",["","0","1"],body,tab));
+  }
   if(tab==="live"){ bar.append(el("input",{type:"text",placeholder:"status code",style:"width:120px",
       value:state.filters[tab]?.status||"",oninput:e=>{state.filters[tab]={status:e.target.value};state.page[tab]=0;debounceLoad(body,tab);}})); }
   bar.append(el("div",{class:"grow"}));
@@ -222,6 +232,7 @@ async function loadData(holder,tab){
   if(tab==="urls"){ url+=`&juicy=${f.juicy?1:0}&params=${f.params?1:0}`; }
   if(tab==="files"){ if(f.kind)url+=`&kind=${f.kind}`; if(f.variant)url+=`&variant=${f.variant}`; }
   if(tab==="jslinks"&&f.kind){ url+=`&kind=${f.kind}`; }
+  if(tab==="endpoints"){ if(f.status)url+=`&status=${encodeURIComponent(f.status)}`; if(f.method)url+=`&method=${f.method}`; if(f.inferred!==undefined&&f.inferred!=="")url+=`&inferred=${f.inferred}`; }
   if(tab==="live"&&f.status){ url+=`&status=${encodeURIComponent(f.status)}`; }
   holder.innerHTML="<div class='muted' style='padding:20px'>loading…</div>";
   let data; try{ data=await api("GET",url); }catch(e){ holder.innerHTML=`<div class='muted'>${e.message}</div>`; return; }
@@ -246,6 +257,10 @@ function colsFor(tab){
     {k:"title",label:"title"},{k:"content_type",label:"type"},{k:"content_length",label:"len"},{k:"via_proxy",label:"proxy"}];
   if(tab==="fuzz") return [{k:"found_url",cls:"mono",label:"found"},{k:"status_code",label:"code",sc:true},
     {k:"content_type",label:"type"},{k:"length",label:"len"},{k:"base_url",cls:"mono",label:"base"}];
+  if(tab==="endpoints") return [{k:"status_code",label:"code",sc:true},{k:"method",label:"method"},
+    {k:"url",cls:"mono",label:"URL"},{k:"content_type",label:"type"},{k:"content_length",label:"len"},
+    {k:"allow",label:"allow"},{k:"host_inferred",label:"inferred"},{k:"source_file",cls:"mono",label:"from JS"},
+    {k:"path",cls:"mono",label:"path"}];
   return (COLS[tab]||[]).map(([k,cls])=>({k,cls:cls&&cls!=="sc"?cls:null,sc:cls==="sc",label:k}));
 }
 function renderRow(tab,row,cols){
@@ -325,6 +340,12 @@ function runModal(){
   const orMax=el("input",{type:"number",value:1500,style:"width:90px"});
   const fzDirs=el("input",{type:"number",value:300,style:"width:80px"});
   const fzWords=el("input",{type:"number",value:0,style:"width:80px",title:"0=all words"});
+  // API endpoint probing
+  const epMethodBoxes=el("div",{class:"steps"});
+  for(const mm of EPMETHODS) epMethodBoxes.append(el("label",{}, el("input",{type:"checkbox",...(mm==="DELETE"?{}:{checked:"checked"}),"data-epm":mm}), mm));
+  const epMaxPaths=el("input",{type:"number",value:8000,style:"width:90px",title:"max distinct endpoint paths to probe, 0=all"});
+  const epInferred=el("input",{type:"number",value:3,style:"width:70px",title:"also test each API path against this many inferred API hosts"});
+  const epScan=el("input",{type:"checkbox",checked:"checked"});
 
   const card=el("div",{class:"card"},
     el("h3",{},"Run recon — "+t.name),
@@ -357,6 +378,13 @@ function runModal(){
       el("label",{class:"row"},"live max",liveMax),
       el("label",{class:"row"},"fuzz dirs",fzDirs),
       el("label",{class:"row"},"fuzz words",fzWords)),
+    el("b",{},"API endpoint probing"),
+    el("div",{class:"muted",style:"font-size:12px;margin-bottom:4px"},"Probes JS-discovered endpoints with these verbs; 404s and WAF-403s are dropped, everything else (200/401/403/422/405…) is saved with its parent JS file."),
+    epMethodBoxes,
+    el("div",{class:"row wrap",style:"gap:14px;margin-top:6px"},
+      el("label",{class:"row"},"max endpoint paths",epMaxPaths),
+      el("label",{class:"row"},"inferred API hosts",epInferred),
+      el("label",{class:"row"},epScan,"re-scan JS for api-calls")),
     el("div",{class:"field",style:"margin-top:8px"},el("label",{},"Base params.txt (optional upload)"),paramsFile),
     el("div",{class:"row spread",style:"margin-top:14px"},
       el("button",{class:"btn",onclick:closeModal},"Cancel"),
@@ -379,7 +407,10 @@ function runModal(){
           max_snapshots_per_url:+maxSnaps.value||25,
           reflection_max_urls:+reflUrls.value||400, reflection_max_params:+reflParams.value||1024,
           openredirect_max_urls:+orMax.value||1500, livecheck_max_urls:+liveMax.value||8000,
-          fuzz_max_base_dirs:+fzDirs.value||300, fuzz_max_words:+fzWords.value||0 };
+          fuzz_max_base_dirs:+fzDirs.value||300, fuzz_max_words:+fzWords.value||0,
+          endpoint_methods:EPMETHODS.filter(mm=>$(`[data-epm="${mm}"]`,epMethodBoxes).checked),
+          endpoint_max_paths:+epMaxPaths.value||0, endpoint_inferred_hosts:+epInferred.value||3,
+          endpoint_scan_files:epScan.checked };
         try{ await api("POST",`/api/targets/${t.id}/start`,opt); toast("recon started"); closeModal();
           await loadTargets(); state.tab="logs"; renderTarget(); }
         catch(e){ toast(e.message); }

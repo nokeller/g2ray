@@ -21,14 +21,14 @@ from sqlalchemy import select
 
 from . import store, util
 from .config import SETTINGS, WORDLIST_DIR
-from .db import get_session, Target, Subdomain, Url, FileRecord, JsLink, Reflection, OpenRedirect
+from .db import get_session, Target, Subdomain, Url, FileRecord, JsLink, Reflection, OpenRedirect, Endpoint
 from .http_client import get_client
 from .modules import (subdomains as m_sub, wayback as m_wb, downloader as m_dl,
                       jsanalyze, params as m_params, reflection as m_refl,
                       openredirect as m_or, livecheck as m_live, fuzz as m_fuzz,
-                      waymore_runner as m_waymore)
+                      waymore_runner as m_waymore, endpoints as m_ep)
 
-STEP_ORDER = ["subdomains", "wayback", "files", "params",
+STEP_ORDER = ["subdomains", "wayback", "files", "endpoints", "params",
               "reflection", "openredirect", "livecheck", "fuzz"]
 
 
@@ -438,6 +438,106 @@ class PipelineRunner:
             entries = new_entries
         self.log("info", "files", f"downloaded/analyzed {len(seen_keys)} unique files "
                                   f"({total_dl} fetch ops incl. time-travel)")
+
+    def _step_endpoints(self):
+        """Intelligent API/endpoint discovery + multi-method probing.
+
+        Uses the JS-extracted links (and, optionally, a re-scan of downloaded JS
+        for fetch/axios method-hinted api calls), infers the target's API hosts,
+        builds absolute in-scope candidate URLs (parent origin + inferred API
+        hosts, route-templates expanded), and probes each with GET/OPTIONS then
+        the configured write verbs — recording every non-404, non-WAF result
+        with its parent JS file + inferred-host flag."""
+        methods = self.options.get("endpoint_methods") or m_ep.DEFAULT_METHODS
+        if isinstance(methods, str):
+            methods = [m.strip() for m in methods.split(",") if m.strip()]
+        max_paths = int(self.options.get("endpoint_max_paths")
+                        if self.options.get("endpoint_max_paths") is not None else 8000)
+        max_inferred = int(self.options.get("endpoint_inferred_hosts")
+                           if self.options.get("endpoint_inferred_hosts") is not None else 3)
+        scan_files = bool(self.options.get("endpoint_scan_files", True))
+        scan_max = int(self.options.get("endpoint_scan_max_files")
+                       if self.options.get("endpoint_scan_max_files") is not None else 4000)
+
+        hosts = self._in_scope_hosts()
+        # hosts that actually served API-looking paths = strong API-host signal
+        api_origin_hosts: set[str] = set()
+        for (link, kind) in self.session.execute(
+                select(JsLink.link, JsLink.kind)
+                .where(JsLink.target_id == self.target_id, JsLink.kind == "url")):
+            if not link:
+                continue
+            absu = ("https:" + link) if link.startswith("//") else link
+            h = util.host_of(absu)
+            if h and util.in_scope(h, self.root) and m_ep.is_api_path(absu):
+                api_origin_hosts.add(h)
+        api_hosts = m_ep.rank_api_hosts(list(hosts) + list(api_origin_hosts), self.root,
+                                        api_origin_hosts=api_origin_hosts, top=8)
+        self.log("info", "endpoints", f"inferred API hosts: "
+                 f"{', '.join(api_hosts) or '(none — parent origins only)'}")
+
+        # 1) candidate (path, kind, source_file) from JS links
+        items: list[tuple[str, str, str]] = []
+        for (link, kind, src) in self.session.execute(
+                select(JsLink.link, JsLink.kind, JsLink.source_file)
+                .where(JsLink.target_id == self.target_id)).yield_per(20000):
+            items.append((link, kind, src or ""))
+        n_jslinks = len(items)
+
+        # 2) optional re-scan of downloaded JS for fetch/axios api-calls the
+        #    LinkFinder regex missed (template-literal endpoints, method hints)
+        if scan_files:
+            seen_sha: set[str] = set()
+            scanned = 0
+            for (furl, fpath, sha) in self.session.execute(
+                    select(FileRecord.url, FileRecord.path, FileRecord.sha256)
+                    .where(FileRecord.target_id == self.target_id,
+                           FileRecord.kind == "js", FileRecord.size > 0)):
+                if scanned >= scan_max or self.should_stop():
+                    break
+                if sha and sha in seen_sha:
+                    continue
+                if sha:
+                    seen_sha.add(sha)
+                try:
+                    text = Path(fpath).read_text("utf-8", "replace") if fpath else ""
+                except Exception:
+                    continue
+                if not text:
+                    continue
+                for (_meth, path) in jsanalyze.extract_api_calls(text[:5_000_000]):
+                    items.append((path, "api", furl))
+                scanned += 1
+            self.log("info", "endpoints", f"re-scanned {scanned} JS files for api-calls "
+                     f"(+{len(items) - n_jslinks} raw api-call paths)")
+
+        cands, n_paths = m_ep.select_and_build(
+            items, self.root, api_hosts, max_paths=max_paths, max_inferred=max_inferred)
+        self.log("info", "endpoints", f"{n_paths} unique endpoint paths "
+                 f"(from {len(items)} raw); built {len(cands)} candidate urls "
+                 f"(cap={max_paths or 'none'})")
+        if not cands:
+            self.log("info", "endpoints", "no candidate endpoints to probe")
+            return
+
+        prober = m_ep.EndpointProber(self.client, methods=methods)
+
+        def persist(rec):
+            with self._lock:
+                store.add_endpoint(self.session, self.target_id, rec)
+        prober.run(cands, persist,
+                   lambda lvl, m: self.log(lvl, "endpoints", m), self.should_stop)
+        self._write_endpoints_file()
+
+    def _write_endpoints_file(self):
+        rows = self.session.execute(
+            select(Endpoint.method, Endpoint.status_code, Endpoint.url,
+                   Endpoint.content_type, Endpoint.source_file)
+            .where(Endpoint.target_id == self.target_id)
+            .order_by(Endpoint.status_code, Endpoint.url)).all()
+        lines = [f"{st}\t{meth}\t{u}\t{ct}\t<- {sf}"
+                 for (meth, st, u, ct, sf) in rows]
+        (self.dir / f"{self.slug}_endpoints.txt").write_text("\n".join(lines) + "\n")
 
     def _step_params(self):
         urls = self._all_urls(only_params=True)

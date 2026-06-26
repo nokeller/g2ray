@@ -109,6 +109,79 @@ def extract_links(content: str) -> set[str]:
     return out
 
 
+# --- API call (method + path) extraction -----------------------------------
+# Best-effort recovery of HTTP method + endpoint from common client patterns in
+# (often minified) JS so the endpoint prober can probe the *right* verb instead
+# of guessing. Misses are fine — the prober still probes a default method set.
+_HTTP_METHODS = ("get", "post", "put", "patch", "delete", "head", "options")
+
+# axios.get("/x") / http.post(`/x`) / this.$http.put('/x') / client.delete("/x")
+_METHOD_CALL = re.compile(
+    r"\.(get|post|put|patch|delete|head|options)\s*\(\s*"
+    r"(['\"`])([^'\"`]{1,400})\2", re.I)
+# fetch("/x", {... method:"POST" ...}) / $fetch / useFetch / ofetch
+_FETCH_CALL = re.compile(
+    r"(?:fetch|\$fetch|useFetch|useLazyFetch|ofetch|request|axios)\s*\(\s*"
+    r"(['\"`])([^'\"`]{1,400})\1([^;]{0,220})", re.I)
+# url:"/x" ... method/type:"POST"  (jQuery $.ajax / generic config objects)
+_AJAX_CALL = re.compile(
+    r"url\s*:\s*(['\"`])([^'\"`]{1,400})\1([^{}]{0,220})", re.I)
+_METHOD_KV = re.compile(r"(?:method|type)\s*:\s*['\"`]([A-Za-z]{3,7})['\"`]", re.I)
+# Bare path strings that look like API endpoints even without a recognised call
+_API_PATHISH = re.compile(
+    r"['\"`](/(?:[A-Za-z0-9_\-./]*?(?:api|v[0-9]|graphql|gql|rest|internal|"
+    r"oauth|auth|token|account|admin|user|users|session|webhook|rpc|service)"
+    r"[A-Za-z0-9_\-./]*))(?:[?#'\"`])", re.I)
+
+
+def _looks_like_path(s: str) -> bool:
+    s = (s or "").strip()
+    if not s or " " in s or "\n" in s:
+        return False
+    if _MIME_TOKEN_RE.match(s):
+        return False
+    if s.startswith(("http://", "https://", "//", "/")):
+        return True
+    # relative path with a slash and a path-ish look (no protocol-relative noise)
+    return "/" in s and not s.startswith((".", "@", "#")) and "://" not in s[:2]
+
+
+def extract_api_calls(content: str) -> list[tuple[str, str]]:
+    """Return de-duplicated ``(METHOD, path)`` pairs found in JS.
+
+    METHOD is uppercase (GET/POST/…); a path with no recovered verb is paired
+    with ``""`` (the prober treats that as "use the default method set").
+    """
+    content = content or ""
+    out: dict[tuple[str, str], None] = {}
+
+    def add(method: str, path: str):
+        path = (path or "").strip()
+        if not _looks_like_path(path):
+            return
+        out[((method or "").upper(), path)] = None
+
+    for m in _METHOD_CALL.finditer(content):
+        add(m.group(1), m.group(3))
+    for m in _FETCH_CALL.finditer(content):
+        path, rest = m.group(2), m.group(3) or ""
+        mk = _METHOD_KV.search(rest)
+        add(mk.group(1) if mk else "", path)
+    for m in _AJAX_CALL.finditer(content):
+        path, rest = m.group(2), m.group(3) or ""
+        mk = _METHOD_KV.search(rest)
+        add(mk.group(1) if mk else "", path)
+    for m in _API_PATHISH.finditer(content):
+        add("", m.group(1))
+    # keep methods valid; unknown verbs -> treat as no-hint
+    clean: list[tuple[str, str]] = []
+    for (meth, path) in out:
+        if meth and meth.lower() not in _HTTP_METHODS:
+            meth = ""
+        clean.append((meth, path))
+    return clean
+
+
 def find_secrets(content: str) -> list[dict]:
     content = content or ""
     seen: set[tuple[str, str]] = set()

@@ -155,6 +155,36 @@ class LiveResult(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_utcnow)
 
 
+class Endpoint(Base):
+    """An API / path endpoint discovered in JS (or juicy files), resolved to an
+    absolute in-scope URL and probed with one or more HTTP methods.
+
+    Stores the *parent* JS file it was discovered from, the raw path as found,
+    whether the target host was inferred (vs. taken from the parent origin), the
+    probed method + status, and a short body/title snippet — everything a bug
+    hunter needs to triage hidden endpoints (401/403/200/422/405…) without the
+    404s and WAF blocks.
+    """
+    __tablename__ = "endpoints"
+    __table_args__ = (UniqueConstraint("target_id", "url", "method"),
+                      Index("ix_endpoints_target_status", "target_id", "status_code"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    target_id: Mapped[int] = mapped_column(ForeignKey("targets.id"), index=True)
+    url: Mapped[str] = mapped_column(Text)                       # absolute probed url
+    method: Mapped[str] = mapped_column(String(8), default="GET")
+    path: Mapped[str] = mapped_column(Text, default="")          # raw path/endpoint as found in JS
+    host: Mapped[str] = mapped_column(String(255), index=True, default="")
+    source_file: Mapped[str] = mapped_column(Text, default="")   # parent JS/juicy file url
+    status_code: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    content_type: Mapped[str] = mapped_column(String(160), default="")
+    content_length: Mapped[int] = mapped_column(Integer, default=0)
+    title: Mapped[str] = mapped_column(Text, default="")         # title or json/body snippet
+    allow: Mapped[str] = mapped_column(String(160), default="")  # Allow header (OPTIONS/405)
+    host_inferred: Mapped[bool] = mapped_column(Boolean, default=False)
+    via_proxy: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_utcnow)
+
+
 class FuzzResult(Base):
     __tablename__ = "fuzzresults"
     __table_args__ = (UniqueConstraint("target_id", "found_url"),)
