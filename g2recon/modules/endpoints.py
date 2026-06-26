@@ -376,8 +376,12 @@ def _loc_sig(r) -> str:
     return ((p.hostname or "") + (p.path or "")).lower()[:160]
 
 
-_STRUCTURED_CT = ("json", "xml", "javascript", "x-www-form", "grpc", "protobuf",
-                  "csv", "yaml", "graphql", "octet-stream", "text/plain")
+# structured response content-types that mark a real data/API endpoint.
+# (javascript/octet-stream are intentionally excluded: a 200 .js/.map/binary is
+# a static file, covered by the files step — keeping them here put live JS bundles
+# in the endpoints view. A genuine API path still records via is_strong_api.)
+_STRUCTURED_CT = ("json", "xml", "x-www-form", "grpc", "protobuf",
+                  "csv", "yaml", "graphql", "text/plain")
 
 
 def _worth_recording(url: str, status: int, ctype: str) -> bool:
