@@ -29,7 +29,7 @@ LogFn = Callable[[str, str], None]
 DEFAULT_EXTS = ["js", "json", "map", "txt", "xml", "config", "cfg", "env",
                 "bak", "old", "yml", "yaml"]
 RECORD_STATUS = {200, 201, 202, 203, 204, 206, 301, 302, 307, 308,
-                 401, 403, 405, 500, 501, 503}
+                 401, 403, 405}
 
 
 def base_dir_of(url: str) -> str:
@@ -95,6 +95,7 @@ class Fuzzer:
             except Exception:
                 baseline = {e: (0, 0) for e in self.exts}
             jobs = [(w, e) for w in words for e in self.exts]
+            dir_hits: list[dict] = []
             with ThreadPoolExecutor(max_workers=workers) as ex:
                 futs = {ex.submit(self._probe, base, w, e, baseline.get(e, (0, 0))): (w, e)
                         for (w, e) in jobs}
@@ -106,8 +107,17 @@ class Fuzzer:
                     except Exception:
                         res = None
                     if res:
-                        persist(res)
-                        count += 1
+                        dir_hits.append(res)
+            # drop systematic responses: a (status,length) returned for many
+            # distinct filenames is a generic error/redirect/SPA page (e.g. a
+            # 500 served via proxy), not real discovered content.
+            from collections import Counter
+            sig_count = Counter((h["status_code"], h["length"]) for h in dir_hits)
+            for h in dir_hits:
+                if sig_count[(h["status_code"], h["length"])] >= 5:
+                    continue
+                persist(h)
+                count += 1
             log("info", f"fuzz {base}: {count} hits so far")
         log("info", f"fuzz: {count} total hits")
         return count

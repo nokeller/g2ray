@@ -47,6 +47,29 @@ def dedup_targets(urls: list[str]) -> dict[str, dict]:
     return out
 
 
+def order_diverse(targets: dict[str, dict]) -> list[dict]:
+    """Round-robin signatures across hosts so a capped scan covers MANY
+    subdomains instead of just the busiest one. Without this, app.adjust.com
+    (millions of tracking urls) would monopolise the first N signatures and the
+    other subdomains would never be tested."""
+    from collections import defaultdict, deque
+    buckets: dict[str, deque] = defaultdict(deque)
+    for it in targets.values():
+        host = urlsplit(it["base"]).hostname or ""
+        buckets[host].append(it)
+    dqs = [dq for dq in buckets.values()]
+    order: list[dict] = []
+    while dqs:
+        nxt = []
+        for dq in dqs:
+            if dq:
+                order.append(dq.popleft())
+            if dq:
+                nxt.append(dq)
+        dqs = nxt
+    return order
+
+
 def _build_url(base: str, markers: dict[str, str]) -> str:
     p = urlsplit(base)
     return urlunparse((p.scheme, p.netloc, p.path, "", urlencode(markers), ""))
@@ -92,8 +115,27 @@ class ReflectionScanner:
                 reflected[name] = _context_for(body, token)
         return reflected, r.status, False
 
+    def _control_reflects(self, base: str) -> tuple[bool, str]:
+        """x8-style guard: probe a RANDOM param name no endpoint expects. If its
+        canary is echoed back, the page reflects ARBITRARY params (it prints the
+        request URL / whole query string — e.g. a canonical link or a
+        'page not found: <url>' message), so enumerating the wordlist would record
+        hundreds of meaningless rows. Detect it with one probe and collapse to a
+        single finding."""
+        name = "g2rctl" + _canary(5)
+        reflected, _status, _ = self._probe_batch(base, [name])
+        return (name in reflected), reflected.get(name, "")
+
     def scan_url(self, base: str, candidate_params: list[str]) -> list[dict]:
         names = candidate_params[: self.max_params_per_url]
+        # reflects-everything guard (see _control_reflects): one finding, not noise
+        any_refl, any_ctx = self._control_reflects(base)
+        if any_refl:
+            return [{
+                "url": base,
+                "param": "*any* (reflects arbitrary params)",
+                "contexts": any_ctx or "body", "status_code": 200,
+            }]
         results: list[dict] = []
         batch = self.start_batch
         i = 0
