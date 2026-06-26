@@ -437,6 +437,68 @@ class PipelineRunner:
                 break
             depth += 1
             entries = new_entries
+
+        # --- recursion safety-net (DB-derived) -------------------------------
+        # The in-memory recursion above only sees files freshly downloaded THIS
+        # run; on a resumed run (a huge depth-0 archive set spread across
+        # restarts) already-downloaded files are skipped and not re-analysed, so
+        # their JS-referenced children can be missed. Re-derive missing in-scope
+        # juicy files from the PERSISTED JsLinks and fetch+analyse them, iterating
+        # to max_depth (each pass picks up children of the previous pass via the
+        # links on_file just stored). Guarantees no referenced file is left out
+        # regardless of how the run was interrupted/resumed.
+        if "live" in variants:
+            try:
+                swept = 0
+                for sweep_depth in range(1, max_depth + 1):
+                    if self.should_stop():
+                        break
+                    downloaded = {u for (u,) in self.session.execute(
+                        select(FileRecord.url).where(
+                            FileRecord.target_id == self.target_id,
+                            FileRecord.size > 0))}
+                    missing: dict[str, str] = {}
+                    for (link, src) in self.session.execute(
+                            select(JsLink.link, JsLink.source_file).where(
+                                JsLink.target_id == self.target_id,
+                                JsLink.kind == "file")).yield_per(20000):
+                        if not src or "://" not in src:
+                            continue
+                        try:
+                            absu = ("https:" + link) if link.startswith("//") else urljoin(src, link)
+                        except Exception:
+                            continue
+                        absu = absu.split("#", 1)[0]
+                        h = util.host_of(absu)
+                        if (util.in_scope(h, self.root)
+                                and util.ext_of(absu) in util.JUICY_EXT
+                                and absu not in downloaded
+                                and m_wb._cap_key(absu) not in seen_keys):
+                            missing.setdefault(absu, src)
+                    if not missing:
+                        break
+                    for u in missing:
+                        seen_keys.add(m_wb._cap_key(u))
+                    items = [{"url": u, "variant": "live", "parent_url": p,
+                              "kind": util.kind_for_url(u), "depth": sweep_depth}
+                             for u, p in missing.items()]
+                    self.log("info", "files", f"recursion sweep depth {sweep_depth}: "
+                             f"{len(items)} JS-referenced files not yet downloaded -> fetching")
+                    for i in range(0, len(items), dl_batch):
+                        if self.should_stop():
+                            break
+                        dl.download_many(items[i:i + dl_batch], on_file,
+                                         lambda lvl, m: self.log(lvl, "files", m),
+                                         self.should_stop)
+                    swept += len(items)
+                    if max_files and len(seen_keys) >= max_files:
+                        break
+                if swept:
+                    self.log("info", "files", f"recursion sweep fetched {swept} "
+                             f"previously-missed JS-referenced files")
+            except Exception as e:
+                self.log("warn", "files", f"recursion sweep skipped: {e}")
+
         self.log("info", "files", f"downloaded/analyzed {len(seen_keys)} unique files "
                                   f"({total_dl} fetch ops incl. time-travel)")
 
