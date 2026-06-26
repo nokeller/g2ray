@@ -314,3 +314,12 @@ def test_5xx_on_api_is_recorded():
     hits = _run(pr, [{"url": "https://api.adjust.com/api/x", "path": "/api/x",
                       "source_file": "", "host_inferred": False}])
     assert any(h["status_code"] == 500 and h["method"] == "POST" for h in hits)
+
+
+def test_waymore_cmd_prefers_console_script():
+    # must never fall back to the broken `python -m waymore` when a console
+    # script exists (this waymore package has no __main__)
+    from g2recon.modules import waymore_runner as w
+    cmd = w._waymore_cmd()
+    assert cmd[0].endswith("/waymore") or cmd[0] == "waymore", cmd
+    assert "-m" not in cmd, cmd

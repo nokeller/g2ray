@@ -61,7 +61,16 @@ def have_waymore() -> bool:
 
 
 def _waymore_cmd() -> list[str]:
-    """Prefer the console-script; fall back to ``python -m waymore``."""
+    """Resolve how to invoke waymore, PATH-independently.
+
+    Prefer the console-script that sits next to the *running* interpreter
+    (``<venv>/bin/waymore``) so it works under systemd regardless of PATH, then
+    a PATH lookup. ``python -m waymore`` is NOT a valid fallback: this waymore
+    package has no ``__main__`` module, so ``-m`` errors out — only use it as a
+    last resort if no console script exists at all."""
+    cand = Path(sys.executable).resolve().parent / "waymore"
+    if cand.exists():
+        return [str(cand)]
     exe = shutil.which("waymore")
     if exe:
         return [exe]
