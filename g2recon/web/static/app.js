@@ -346,6 +346,7 @@ function runModal(){
   const epMaxPaths=el("input",{type:"number",value:8000,style:"width:90px",title:"max distinct endpoint paths to probe, 0=all"});
   const epInferred=el("input",{type:"number",value:3,style:"width:70px",title:"also test each API path against this many inferred API hosts"});
   const epScan=el("input",{type:"checkbox",checked:"checked"});
+  const epWorkers=el("input",{type:"number",value:20,style:"width:70px",title:"concurrent endpoint probe workers"});
 
   const card=el("div",{class:"card"},
     el("h3",{},"Run recon — "+t.name),
@@ -384,6 +385,7 @@ function runModal(){
     el("div",{class:"row wrap",style:"gap:14px;margin-top:6px"},
       el("label",{class:"row"},"max endpoint paths",epMaxPaths),
       el("label",{class:"row"},"inferred API hosts",epInferred),
+      el("label",{class:"row"},"probe workers",epWorkers),
       el("label",{class:"row"},epScan,"re-scan JS for api-calls")),
     el("div",{class:"field",style:"margin-top:8px"},el("label",{},"Base params.txt (optional upload)"),paramsFile),
     el("div",{class:"row spread",style:"margin-top:14px"},
@@ -410,7 +412,7 @@ function runModal(){
           fuzz_max_base_dirs:+fzDirs.value||300, fuzz_max_words:+fzWords.value||0,
           endpoint_methods:EPMETHODS.filter(mm=>$(`[data-epm="${mm}"]`,epMethodBoxes).checked),
           endpoint_max_paths:+epMaxPaths.value||0, endpoint_inferred_hosts:+epInferred.value||3,
-          endpoint_scan_files:epScan.checked };
+          endpoint_workers:+epWorkers.value||20, endpoint_scan_files:epScan.checked };
         try{ await api("POST",`/api/targets/${t.id}/start`,opt); toast("recon started"); closeModal();
           await loadTargets(); state.tab="logs"; renderTarget(); }
         catch(e){ toast(e.message); }

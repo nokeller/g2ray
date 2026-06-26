@@ -73,6 +73,37 @@ _SECRET_RULES: list[tuple[str, re.Pattern, str]] = [
 
 _NEW_FILE_EXT = util.JUICY_EXT  # what we recurse into
 
+# placeholder / non-secret values that the broad generic_secret rule otherwise
+# flags (e.g. `PASSWORD="password"`, `accessToken:"access_token"`), plus enum
+# constants and templates. Anything here is NOT a real secret.
+_PLACEHOLDER_VALUES = {
+    "password", "passwd", "pwd", "access_token", "accesstoken", "auth_token",
+    "authtoken", "api_key", "apikey", "api_secret", "apisecret", "client_secret",
+    "clientsecret", "secret_key", "secretkey", "secret", "token", "key",
+    "private_key", "privatekey", "x-api-key", "decryption_key", "encryption_key",
+    "your_api_key", "your_token", "yourkey", "your-key", "example", "changeme",
+    "placeholder", "none", "null", "nil", "undefined", "true", "false", "test",
+    "string", "value", "redacted", "hidden", "xxxxxxxx", "00000000",
+}
+_PLACEHOLDER_RE = re.compile(
+    r"^(?:[xX]+|\.+|\*+|0+|<[^>]*>|\$\{[^}]*\}|\{\{[^}]*\}\}|%[a-z_]+%|"
+    r"[A-Z]+(?:_[A-Z0-9]+)+)$")  # SCREAMING_SNAKE_CASE constant names
+
+
+def _is_placeholder_secret(value: str) -> bool:
+    v = (value or "").strip()
+    if not v or len(v) < 6:
+        return True
+    if v.lower() in _PLACEHOLDER_VALUES:
+        return True
+    if _PLACEHOLDER_RE.match(v):
+        return True
+    # single repeated char (aaaaaa, ------)
+    if len(set(v)) <= 2 and len(v) >= 6:
+        return True
+    return False
+
+
 # Endpoint extraction noise: XML/RDF namespaces and bare MIME-type tokens that
 # the LinkFinder regex picks up from RSS/Atom feeds, SVG and CSS but which are
 # not real endpoints.
@@ -189,6 +220,17 @@ def find_secrets(content: str) -> list[dict]:
     for name, rx, sev in _SECRET_RULES:
         for m in rx.finditer(content):
             raw = m.group(0)
+            # generic_secret captures the VALUE in the last group — drop matches
+            # whose value is an obvious placeholder/constant (e.g.
+            # PASSWORD="password", accessToken:"access_token"), a key-name echo,
+            # a template (${...}) or a repeated filler. Keeps real tokens.
+            if name == "generic_secret":
+                try:
+                    val = m.group(m.lastindex) if m.lastindex else ""
+                except Exception:
+                    val = ""
+                if _is_placeholder_secret(val):
+                    continue
             key = (name, raw[:120])
             if key in seen:
                 continue

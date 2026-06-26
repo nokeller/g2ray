@@ -521,12 +521,14 @@ class PipelineRunner:
             return
 
         prober = m_ep.EndpointProber(self.client, methods=methods)
+        workers = int(self.options.get("endpoint_workers") or SETTINGS.check_workers)
 
         def persist(rec):
             with self._lock:
                 store.add_endpoint(self.session, self.target_id, rec)
         prober.run(cands, persist,
-                   lambda lvl, m: self.log(lvl, "endpoints", m), self.should_stop)
+                   lambda lvl, m: self.log(lvl, "endpoints", m), self.should_stop,
+                   workers=workers)
         self._write_endpoints_file()
 
     def _write_endpoints_file(self):

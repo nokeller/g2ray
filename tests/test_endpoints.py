@@ -228,7 +228,7 @@ def test_prober_real_403_recorded():
 
 
 def test_prober_catchall_redirect_suppressed():
-    # host redirects EVERY unknown path to /login (catch-all) -> noise
+    # 3xx are dropped from the endpoints view entirely (livecheck covers them)
     rules = [
         (r"GET", r".*", lambda m, u: _r(302, "", headers={"location": "https://dash.adjust.com/login?return=" + u})),
         (r"OPTIONS|POST|PUT|PATCH", r".*", lambda m, u: _r(404)),
@@ -236,4 +236,81 @@ def test_prober_catchall_redirect_suppressed():
     pr = ep.EndpointProber(FakeClient(rules), methods=["GET"])
     hits = _run(pr, [{"url": "https://dash.adjust.com/api/apps", "path": "/api/apps",
                       "source_file": "", "host_inferred": False}])
-    assert hits == []        # same catch-all redirect target -> baselined out
+    assert hits == []
+
+
+def test_3xx_dropped_even_to_new_path():
+    rules = [
+        (r"GET", r"/old$", lambda m, u: _r(301, "", headers={"location": "/totally/new/place"})),
+        (r".*", r".*", lambda m, u: _r(404)),
+    ]
+    pr = ep.EndpointProber(FakeClient(rules), methods=["GET"])
+    hits = _run(pr, [{"url": "https://dash.adjust.com/old", "path": "/old",
+                      "source_file": "", "host_inferred": False}])
+    assert hits == []
+
+
+def test_is_strong_api():
+    assert ep.is_strong_api("https://x.adjust.com/api/apps")
+    assert ep.is_strong_api("https://x.adjust.com/v1/users")
+    assert ep.is_strong_api("https://x.adjust.com/graphql")
+    assert not ep.is_strong_api("https://x.adjust.com/partners/list")
+    assert not ep.is_strong_api("https://x.adjust.com/events")
+
+
+def test_worth_recording_filters_marketing_pages():
+    rules = [
+        (r"GET", r"/company$", lambda m, u: _r(200, "<html>about</html>", "text/html")),
+        (r"GET", r"/data$", lambda m, u: _r(200, '{"a":1}', "application/json")),
+        (r"GET", r"/api/x$", lambda m, u: _r(200, "<html>doc</html>", "text/html")),
+        (r".*", r".*", lambda m, u: _r(404)),
+    ]
+    pr = ep.EndpointProber(FakeClient(rules), methods=["GET"])
+    hits = _run(pr, [
+        {"url": "https://www.adjust.com/company", "path": "/company", "source_file": "", "host_inferred": False},
+        {"url": "https://api.adjust.com/data", "path": "/data", "source_file": "", "host_inferred": False},
+        {"url": "https://api.adjust.com/api/x", "path": "/api/x", "source_file": "", "host_inferred": False},
+    ])
+    urls = {h["url"] for h in hits}
+    assert "https://www.adjust.com/company" not in urls       # marketing html 200 -> skip
+    assert "https://api.adjust.com/data" in urls              # json -> keep
+    assert "https://api.adjust.com/api/x" in urls             # strong-api html -> keep
+
+
+def test_generic_secret_placeholder_filter():
+    js = ('e.AccessToken="access_token";e.PASSWORD="password";'
+          'var c={accessToken:"QprCQ4FOIlRk4iTwRy7pkAtt"};'
+          'var k={api_secret:"ACCESS_TOKEN"};'
+          'var t={client_secret:"sk_live_realLOOKINGsecret12345"};')
+    matches = [s["match"] for s in ja.find_secrets(js)]
+    assert any("QprCQ4FOIlRk4iTwRy7pkAtt" in m for m in matches)      # real token kept
+    assert any("sk_live_realLOOKINGsecret12345" in m for m in matches)  # real secret kept
+    assert not any('"access_token"' in m for m in matches)            # placeholder dropped
+    assert not any('"password"' in m for m in matches)                # placeholder dropped
+    assert not any("ACCESS_TOKEN" in m for m in matches)              # SCREAMING_SNAKE dropped
+
+
+def test_uniform_5xx_marketing_not_recorded_and_no_write_cascade():
+    # host returns a uniform 500 html shell for EVERY verb (proxy/CDN error) on a
+    # non-API path -> nothing recorded, and GET-500 must NOT trigger write probes
+    probed = []
+    def fac(m, u):
+        probed.append((m, u))
+        return _r(500, "<html>err " + "x" * 4000 + "</html>", "text/html")
+    rules = [(r".*", r".*", fac)]
+    pr = ep.EndpointProber(FakeClient(rules), methods=["GET", "OPTIONS", "POST", "PUT", "PATCH"])
+    hits = _run(pr, [{"url": "https://www.adjust.com/blog/post", "path": "/blog/post",
+                      "source_file": "", "host_inferred": False}])
+    assert hits == []                                  # uniform 5xx html -> noise
+    # GET 500 (worth_recording False) must not make exists True -> no POST/PUT/PATCH
+    methods_probed = {m for (m, u) in probed if "/blog/post" in u}
+    assert "POST" not in methods_probed and "PUT" not in methods_probed
+
+
+def test_5xx_on_api_is_recorded():
+    rules = [(r"POST", r"/api/x$", lambda m, u: _r(500, '{"error":"boom"}', "application/json")),
+             (r".*", r".*", lambda m, u: _r(404))]
+    pr = ep.EndpointProber(FakeClient(rules), methods=["GET", "POST"])
+    hits = _run(pr, [{"url": "https://api.adjust.com/api/x", "path": "/api/x",
+                      "source_file": "", "host_inferred": False}])
+    assert any(h["status_code"] == 500 and h["method"] == "POST" for h in hits)

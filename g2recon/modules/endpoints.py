@@ -327,11 +327,21 @@ def select_and_build(items, root: str, api_hosts: list[str], *,
 # ----------------------------------------------------------------------------
 _TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
 DEFAULT_METHODS = ["GET", "OPTIONS", "POST", "PUT", "PATCH"]
-# statuses that mean "this endpoint exists / is interesting" (never 404)
+# statuses that mean "this endpoint exists / is interesting" (never 404).
+# 3xx are intentionally excluded: a redirect on a discovered path is almost
+# always canonicalisation (trailing slash / http→https / →login / →www) noise —
+# general redirect liveness is covered by the livecheck step instead.
 _INTERESTING = {200, 201, 202, 203, 204, 206, 207, 226,
-                301, 302, 303, 307, 308,
                 400, 401, 402, 403, 405, 406, 409, 410, 415, 418, 422, 423,
                 428, 429, 431, 451, 500, 501, 502, 503}
+# STRONG api markers => record even when the body is html (real API surface)
+_STRONG_API = re.compile(
+    r"(?:^|/)(?:api|v[0-9]{1,2}|graphql|gql|rest|rpc|internal|oauth|jsonrpc|"
+    r"webhook|s2s|odata|wp-json|graphiql)(?:/|$|\.|\?)", re.I)
+
+
+def is_strong_api(url: str) -> bool:
+    return bool(_STRONG_API.search(url or ""))
 
 
 def _rand(n=10):
@@ -364,6 +374,30 @@ def _loc_sig(r) -> str:
         return ""
     p = urlsplit(loc if "://" in loc else "//" + loc.lstrip("/"))
     return ((p.hostname or "") + (p.path or "")).lower()[:160]
+
+
+_STRUCTURED_CT = ("json", "xml", "javascript", "x-www-form", "grpc", "protobuf",
+                  "csv", "yaml", "graphql", "octet-stream", "text/plain")
+
+
+def _worth_recording(url: str, status: int, ctype: str) -> bool:
+    """Keep the endpoints view high-signal: a structured/auth-gated response, or
+    a strong-API URL, is always recorded. A bare HTML page that merely exists or
+    errors (a 200/405/5xx marketing page on a non-API path — often a uniform
+    proxy/CDN error shell) is general liveness, not an endpoint finding.
+
+    Note: keeping 5xx ONLY for strong-API/structured is deliberate — it also
+    prevents a host that returns a uniform 5xx for every verb (when its soft-404
+    baseline could not be established because the direct IP was rate-limited)
+    from cascading a GET-5xx into write-method probes."""
+    if is_strong_api(url):
+        return True
+    ct = (ctype or "").lower()
+    if any(t in ct for t in _STRUCTURED_CT):
+        return True
+    if status in (401, 402, 403, 409, 422, 423):
+        return True
+    return False
 
 
 class EndpointProber:
@@ -443,10 +477,12 @@ class EndpointProber:
         if self._is_baseline(host_origin, method, r.status, length, loc):
             return None
         ctype = r.headers.get("content-type", "")[:160]
+        if not _worth_recording(url, r.status, ctype):
+            return None
+        loc_raw = (r.headers.get("location") or r.headers.get("Location") or "")
         allow = (r.headers.get("allow") or r.headers.get("Allow")
                  or r.headers.get("access-control-allow-methods") or "")[:160]
         snippet = _snippet(r.text, ctype)
-        loc_raw = (r.headers.get("location") or r.headers.get("Location") or "")
         if loc_raw and not snippet:
             snippet = f"-> {loc_raw[:160]}"
         return {
