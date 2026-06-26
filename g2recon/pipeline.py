@@ -819,9 +819,21 @@ class PipelineRunner:
 
     # -- cors --------------------------------------------------------------
     def _step_cors(self):
+        from .db import LiveResult
         targets: set[str] = set()
+        # Prefer hosts already known to respond (livecheck results): probing all
+        # 4000+ enumerated subdomains wastes the sweep on dead hosts (each dead
+        # host costs a full timeout). Fall back to every in-scope host only when
+        # there are no live results yet.
+        live_hosts: set[str] = set()
+        for (u,) in self.session.execute(
+                select(LiveResult.url).where(LiveResult.target_id == self.target_id)).all():
+            h = util.host_of(u)
+            if h:
+                live_hosts.add(h)
         for h in self._in_scope_hosts():
-            targets.add(f"https://{h}/")
+            if not live_hosts or h in live_hosts:
+                targets.add(f"https://{h}/")
         # the discovered API endpoints are the most interesting CORS targets
         for (u,) in self.session.execute(
                 select(Endpoint.url).where(Endpoint.target_id == self.target_id)).all():
