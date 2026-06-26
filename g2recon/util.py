@@ -52,7 +52,25 @@ def in_scope(host: str, root: str) -> bool:
     root = (root or "").lower().strip(".")
     if not host or not root:
         return False
+    if not is_valid_host(host):
+        return False
     return host == root or host.endswith("." + root)
+
+
+_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$", re.I)
+
+
+def is_valid_host(host: str) -> bool:
+    """Reject archive/CDX artifacts like ``__extcc_www.adjust.com`` or hosts
+    with empty/invalid DNS labels. A real hostname is dot-separated labels of
+    [a-z0-9-] (not starting/ending with '-')."""
+    host = (host or "").strip().strip(".").lower()
+    if not host or ".." in host or len(host) > 253:
+        return False
+    labels = host.split(".")
+    if len(labels) < 2:
+        return False
+    return all(_LABEL_RE.match(lbl) for lbl in labels)
 
 
 def ext_of(url: str) -> str:

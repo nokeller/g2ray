@@ -7,7 +7,9 @@
 """
 from __future__ import annotations
 
+import math
 import re
+from collections import Counter
 from urllib.parse import urljoin
 
 from .. import util
@@ -60,7 +62,7 @@ _SECRET_RULES: list[tuple[str, re.Pattern, str]] = [
     ("private_key",
      re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----"), "high"),
     ("cloudinary_url", re.compile(r"\bcloudinary://[0-9]+:[A-Za-z0-9\-_]+@[A-Za-z0-9\-_]+"), "high"),
-    ("basic_auth_url", re.compile(r"\b[a-z]{2,10}://[^/\s:@]{2,}:[^/\s:@]{2,}@[a-z0-9.-]+"), "high"),
+    ("basic_auth_url", re.compile(r"\b[a-z][a-z0-9+.\-]{1,9}://[A-Za-z0-9._~%+\-]{2,}:[A-Za-z0-9._~%+\-]{2,}@[a-z0-9.\-]+\.[a-z]{2,}\b"), "high"),
     ("s3_bucket", re.compile(r"\b[a-z0-9.-]{3,63}\.s3(?:[.-][a-z0-9-]+)?\.amazonaws\.com\b"), "low"),
     ("firebase_db", re.compile(r"\bhttps://[a-z0-9-]+\.firebaseio\.com\b"), "low"),
     ("authorization_bearer", re.compile(r"(?i)\bbearer\s+[a-z0-9\-_.=]{20,}"), "medium"),
@@ -73,14 +75,186 @@ _SECRET_RULES: list[tuple[str, re.Pattern, str]] = [
 
 _NEW_FILE_EXT = util.JUICY_EXT  # what we recurse into
 
+# placeholder / non-secret values that the broad generic_secret rule otherwise
+# flags (e.g. `PASSWORD="password"`, `accessToken:"access_token"`), plus enum
+# constants and templates. Anything here is NOT a real secret.
+_PLACEHOLDER_VALUES = {
+    "password", "passwd", "pwd", "access_token", "accesstoken", "auth_token",
+    "authtoken", "api_key", "apikey", "api_secret", "apisecret", "client_secret",
+    "clientsecret", "secret_key", "secretkey", "secret", "token", "key",
+    "private_key", "privatekey", "x-api-key", "decryption_key", "encryption_key",
+    "your_api_key", "your_token", "yourkey", "your-key", "example", "changeme",
+    "placeholder", "none", "null", "nil", "undefined", "true", "false", "test",
+    "string", "value", "redacted", "hidden", "xxxxxxxx", "00000000",
+}
+_PLACEHOLDER_RE = re.compile(
+    r"^(?:[xX]+|\.+|\*+|0+|<[^>]*>|\$\{[^}]*\}|\{\{[^}]*\}\}|%[a-z_]+%|"
+    r"[A-Z]+(?:_[A-Z0-9]+)+)$")  # SCREAMING_SNAKE_CASE constant names
+
+
+def _is_placeholder_secret(value: str) -> bool:
+    v = (value or "").strip()
+    if not v or len(v) < 6:
+        return True
+    if v.lower() in _PLACEHOLDER_VALUES:
+        return True
+    if _PLACEHOLDER_RE.match(v):
+        return True
+    # single repeated char (aaaaaa, ------)
+    if len(set(v)) <= 2 and len(v) >= 6:
+        return True
+    return False
+
+
+# Characters that mean the captured "value" is actually JS source, not a literal
+# secret: string concatenation / function calls / templates / object/array
+# syntax. e.g. `apiKey="+encodeURIComponent(x)` captures `+encodeURIComponent(`.
+_CODEISH = set("+(){}[]<>;,`$\\| &!\t\n ")
+
+
+def _shannon(s: str) -> float:
+    if not s:
+        return 0.0
+    n = len(s)
+    return -sum((k / n) * math.log2(k / n) for k in Counter(s).values())
+
+
+def _is_real_credential(value: str) -> bool:
+    """True only when a generic_secret VALUE looks like an actual credential.
+
+    Kills the two dominant false positives seen in real bundles:
+      * JS code captured after `apiKey="` + concatenation/templates, and
+      * i18n translation strings (`access_token:"Zugriffstoken"` / non-ASCII).
+    A genuine key/token is ASCII, has no code punctuation, is not a plain word,
+    and carries entropy (digits or mixed alphanum / base64 / hex).
+    """
+    v = (value or "").strip()
+    if _is_placeholder_secret(v):
+        return False
+    if any(ord(c) > 127 for c in v):           # i18n / unicode text -> not a key
+        return False
+    if any(c in _CODEISH for c in v):           # JS code / concat / template
+        return False
+    if v.isalpha():                             # natural-language word, not a token
+        return False
+    has_digit = any(c.isdigit() for c in v)
+    has_upper = any(c.isupper() for c in v)
+    has_lower = any(c.islower() for c in v)
+    keyish = any(c in "-_./=" for c in v)
+    if not (has_digit or keyish or (has_upper and has_lower and len(v) >= 20)):
+        return False
+    if _shannon(v) < 2.5:                        # e.g. aaaa1111 — too low entropy
+        return False
+    return True
+
+
+# Endpoint extraction noise: XML/RDF namespaces and bare MIME-type tokens that
+# the LinkFinder regex picks up from RSS/Atom feeds, SVG and CSS but which are
+# not real endpoints.
+_NOISE_HOSTS = {
+    "www.w3.org", "w3.org", "purl.org", "schema.org", "ns.adobe.com",
+    "gmpg.org", "ogp.me", "creativecommons.org", "xmlns.com", "www.iso.org",
+    "relaxng.org", "docbook.org", "www.gnu.org", "json-schema.org",
+    "www.inkscape.org", "sodipodi.sourceforge.net", "validator.w3.org",
+}
+_MIME_TOKEN_RE = re.compile(
+    r"^(?:text|image|audio|video|application|font|multipart|message|model|chemical)"
+    r"/[a-z0-9][a-z0-9.+-]*$", re.I)
+
+
+def _is_noise_link(link: str) -> bool:
+    l = (link or "").strip().strip("'\"`")
+    if not l:
+        return True
+    if _MIME_TOKEN_RE.match(l):                 # text/css, application/json …
+        return True
+    if l.startswith(("http://", "https://", "//")):
+        h = util.host_of(l).lower()
+        if h in _NOISE_HOSTS:
+            return True
+    return False
+
 
 def extract_links(content: str) -> set[str]:
     out: set[str] = set()
     for m in _LINK_RE.finditer(content or ""):
         link = m.group(1)
-        if link:
+        if link and not _is_noise_link(link):
             out.add(link.strip())
     return out
+
+
+# --- API call (method + path) extraction -----------------------------------
+# Best-effort recovery of HTTP method + endpoint from common client patterns in
+# (often minified) JS so the endpoint prober can probe the *right* verb instead
+# of guessing. Misses are fine — the prober still probes a default method set.
+_HTTP_METHODS = ("get", "post", "put", "patch", "delete", "head", "options")
+
+# axios.get("/x") / http.post(`/x`) / this.$http.put('/x') / client.delete("/x")
+_METHOD_CALL = re.compile(
+    r"\.(get|post|put|patch|delete|head|options)\s*\(\s*"
+    r"(['\"`])([^'\"`]{1,400})\2", re.I)
+# fetch("/x", {... method:"POST" ...}) / $fetch / useFetch / ofetch
+_FETCH_CALL = re.compile(
+    r"(?:fetch|\$fetch|useFetch|useLazyFetch|ofetch|request|axios)\s*\(\s*"
+    r"(['\"`])([^'\"`]{1,400})\1([^;]{0,220})", re.I)
+# url:"/x" ... method/type:"POST"  (jQuery $.ajax / generic config objects)
+_AJAX_CALL = re.compile(
+    r"url\s*:\s*(['\"`])([^'\"`]{1,400})\1([^{}]{0,220})", re.I)
+_METHOD_KV = re.compile(r"(?:method|type)\s*:\s*['\"`]([A-Za-z]{3,7})['\"`]", re.I)
+# Bare path strings that look like API endpoints even without a recognised call
+_API_PATHISH = re.compile(
+    r"['\"`](/(?:[A-Za-z0-9_\-./]*?(?:api|v[0-9]|graphql|gql|rest|internal|"
+    r"oauth|auth|token|account|admin|user|users|session|webhook|rpc|service)"
+    r"[A-Za-z0-9_\-./]*))(?:[?#'\"`])", re.I)
+
+
+def _looks_like_path(s: str) -> bool:
+    s = (s or "").strip()
+    if not s or " " in s or "\n" in s:
+        return False
+    if _MIME_TOKEN_RE.match(s):
+        return False
+    if s.startswith(("http://", "https://", "//", "/")):
+        return True
+    # relative path with a slash and a path-ish look (no protocol-relative noise)
+    return "/" in s and not s.startswith((".", "@", "#")) and "://" not in s[:2]
+
+
+def extract_api_calls(content: str) -> list[tuple[str, str]]:
+    """Return de-duplicated ``(METHOD, path)`` pairs found in JS.
+
+    METHOD is uppercase (GET/POST/…); a path with no recovered verb is paired
+    with ``""`` (the prober treats that as "use the default method set").
+    """
+    content = content or ""
+    out: dict[tuple[str, str], None] = {}
+
+    def add(method: str, path: str):
+        path = (path or "").strip()
+        if not _looks_like_path(path):
+            return
+        out[((method or "").upper(), path)] = None
+
+    for m in _METHOD_CALL.finditer(content):
+        add(m.group(1), m.group(3))
+    for m in _FETCH_CALL.finditer(content):
+        path, rest = m.group(2), m.group(3) or ""
+        mk = _METHOD_KV.search(rest)
+        add(mk.group(1) if mk else "", path)
+    for m in _AJAX_CALL.finditer(content):
+        path, rest = m.group(2), m.group(3) or ""
+        mk = _METHOD_KV.search(rest)
+        add(mk.group(1) if mk else "", path)
+    for m in _API_PATHISH.finditer(content):
+        add("", m.group(1))
+    # keep methods valid; unknown verbs -> treat as no-hint
+    clean: list[tuple[str, str]] = []
+    for (meth, path) in out:
+        if meth and meth.lower() not in _HTTP_METHODS:
+            meth = ""
+        clean.append((meth, path))
+    return clean
 
 
 def find_secrets(content: str) -> list[dict]:
@@ -90,6 +264,23 @@ def find_secrets(content: str) -> list[dict]:
     for name, rx, sev in _SECRET_RULES:
         for m in rx.finditer(content):
             raw = m.group(0)
+            # generic_secret captures the VALUE in the last group — drop matches
+            # whose value is an obvious placeholder/constant (e.g.
+            # PASSWORD="password", accessToken:"access_token"), a key-name echo,
+            # a template (${...}) or a repeated filler. Keeps real tokens.
+            if name == "generic_secret":
+                try:
+                    val = m.group(m.lastindex) if m.lastindex else ""
+                except Exception:
+                    val = ""
+                if not _is_real_credential(val):
+                    continue
+            elif name == "authorization_bearer":
+                # `Bearer xxxxxx…` placeholders / repeated filler are not secrets
+                parts = raw.split(None, 1)
+                tok = parts[1] if len(parts) > 1 else ""
+                if _is_placeholder_secret(tok):
+                    continue
             key = (name, raw[:120])
             if key in seen:
                 continue

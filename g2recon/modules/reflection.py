@@ -47,18 +47,53 @@ def dedup_targets(urls: list[str]) -> dict[str, dict]:
     return out
 
 
+def order_diverse(targets: dict[str, dict]) -> list[dict]:
+    """Round-robin signatures across hosts so a capped scan covers MANY
+    subdomains instead of just the busiest one. Without this, app.adjust.com
+    (millions of tracking urls) would monopolise the first N signatures and the
+    other subdomains would never be tested."""
+    from collections import defaultdict, deque
+    buckets: dict[str, deque] = defaultdict(deque)
+    for it in targets.values():
+        host = urlsplit(it["base"]).hostname or ""
+        buckets[host].append(it)
+    dqs = [dq for dq in buckets.values()]
+    order: list[dict] = []
+    while dqs:
+        nxt = []
+        for dq in dqs:
+            if dq:
+                order.append(dq.popleft())
+            if dq:
+                nxt.append(dq)
+        dqs = nxt
+    return order
+
+
 def _build_url(base: str, markers: dict[str, str]) -> str:
     p = urlsplit(base)
     return urlunparse((p.scheme, p.netloc, p.path, "", urlencode(markers), ""))
 
 
-def _context_for(body: str, token: str) -> str:
-    """Cheap reflection-context classifier."""
-    ctx = set()
+# Raw survival of any of these breakout chars next to the marker means the
+# reflection is UNENCODED (a real XSS candidate). If they come back HTML/URL-
+# encoded, the reflection is harmless — that was the dominant false positive
+# (773/780 of the 8x8 "reflections" were encoded text echoes).
+_BREAK = "\"'<>"
+
+
+def _reflection_info(body: str, token: str) -> tuple[str, str]:
+    """Return (contexts, raw_break) for a marker echoed in ``body``.
+
+    raw_break = the subset of ``_BREAK`` chars that appear UNENCODED immediately
+    after the marker. Empty => reflected but encoded => NOT exploitable.
+    """
+    ctx: set[str] = set()
+    raw: set[str] = set()
     for m in re.finditer(re.escape(token), body):
         i = m.start()
         pre = body[max(0, i - 60): i]
-        post = body[i + len(token): i + len(token) + 20]
+        seg = body[i + len(token): i + len(token) + 12]
         low = pre.lower()
         if "<script" in low and "</script" not in low:
             ctx.add("js")
@@ -68,7 +103,10 @@ def _context_for(body: str, token: str) -> str:
             ctx.add("html")
         else:
             ctx.add("text")
-    return ",".join(sorted(ctx)) or "body"
+        for ch in _BREAK:
+            if ch in seg:
+                raw.add(ch)
+    return ",".join(sorted(ctx)) or "body", "".join(c for c in _BREAK if c in raw)
 
 
 class ReflectionScanner:
@@ -79,21 +117,54 @@ class ReflectionScanner:
         self.start_batch = start_batch
 
     def _probe_batch(self, base: str, names: list[str]) -> tuple[dict, int, bool]:
-        """Send one batch; return (reflected{name:context}, status, shrink?)."""
+        """Send one batch; return (reflected{name:{contexts,raw}}, status, shrink?).
+
+        Each canary carries trailing breakout chars so we can tell an exploitable
+        (raw) reflection from a harmless encoded echo."""
         markers = {name: _canary() for name in names}
-        url = _build_url(base, markers)
+        url = _build_url(base, {name: tok + _BREAK for name, tok in markers.items()})
         r = self.client.get(url, allow_redirects=True)
         if r.status in (400, 413, 414, 431) or r.error:
             return {}, r.status, True
         body = r.text or ""
-        reflected: dict[str, str] = {}
+        reflected: dict[str, dict] = {}
         for name, token in markers.items():
             if token in body:
-                reflected[name] = _context_for(body, token)
+                ctx, raw = _reflection_info(body, token)
+                reflected[name] = {"contexts": ctx, "raw": raw}
         return reflected, r.status, False
+
+    def _control_reflects(self, base: str) -> tuple[bool, str, str]:
+        """x8-style guard: probe a RANDOM param name no endpoint expects. If its
+        canary is echoed back, the page reflects ARBITRARY params (it prints the
+        request URL / whole query string — e.g. a canonical link or a
+        'page not found: <url>' message), so enumerating the wordlist would record
+        hundreds of meaningless rows. Detect it with one probe and collapse to a
+        single finding. Returns (reflects, contexts, raw_break)."""
+        name = "g2rctl" + _canary(5)
+        reflected, _status, _ = self._probe_batch(base, [name])
+        info = reflected.get(name)
+        if info:
+            return True, info["contexts"], info["raw"]
+        return False, "", ""
+
+    @staticmethod
+    def _ctx_label(contexts: str, raw: str) -> str:
+        # make exploitability explicit in the stored contexts string so the UI /
+        # report can filter real XSS candidates from harmless encoded echoes
+        return contexts + (" UNENCODED:" + raw if raw else " (encoded)")
 
     def scan_url(self, base: str, candidate_params: list[str]) -> list[dict]:
         names = candidate_params[: self.max_params_per_url]
+        # reflects-everything guard (see _control_reflects): one finding, not noise
+        any_refl, any_ctx, any_raw = self._control_reflects(base)
+        if any_refl:
+            return [{
+                "url": base,
+                "param": "*any* (reflects arbitrary params)",
+                "contexts": self._ctx_label(any_ctx or "body", any_raw),
+                "payload": any_raw, "status_code": 200,
+            }]
         results: list[dict] = []
         batch = self.start_batch
         i = 0
@@ -103,10 +174,12 @@ class ReflectionScanner:
             if shrink and batch > 4:
                 batch = max(4, batch // 2)   # adaptive max-param detection
                 continue
-            for name, ctx in reflected.items():
+            for name, info in reflected.items():
                 results.append({
                     "url": util.with_params(base, {name: "FUZZ"}),
-                    "param": name, "contexts": ctx, "status_code": status,
+                    "param": name,
+                    "contexts": self._ctx_label(info["contexts"], info["raw"]),
+                    "payload": info["raw"], "status_code": status,
                 })
             i += batch
         return results

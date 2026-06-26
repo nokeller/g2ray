@@ -15,8 +15,9 @@ function el(tag, attrs = {}, ...kids) {
   }
   return e;
 }
-const STEPS = ["subdomains","wayback","files","params","reflection","openredirect","livecheck","fuzz"];
+const STEPS = ["subdomains","wayback","files","endpoints","params","reflection","openredirect","livecheck","takeover","cors","fuzz"];
 const SUBSOURCES = ["crtsh","subfinder","wayback","otx","hackertarget","rapiddns"];
+const EPMETHODS = ["GET","OPTIONS","POST","PUT","PATCH","DELETE"];
 
 const state = { user:null, targets:[], current:null, tab:"overview",
   page:{}, q:{}, filters:{}, logsLastId:0, logsTimer:null, pollTimer:null };
@@ -126,11 +127,14 @@ function tabDefs(){return [
   {key:"subdomains",label:"Subdomains",count:"subdomains"},
   {key:"urls",label:"URLs",count:"urls"},
   {key:"files",label:"JS / Juicy",count:"files"},
-  {key:"jslinks",label:"Endpoints",count:"jslinks"},
+  {key:"jslinks",label:"JS Links",count:"jslinks"},
+  {key:"endpoints",label:"API Endpoints",count:"endpoints"},
   {key:"secrets",label:"Secrets",count:"secrets"},
   {key:"params",label:"Parameters",count:"params"},
   {key:"reflections",label:"Reflections",count:"reflections"},
   {key:"openredirects",label:"Open Redirect",count:"openredirects"},
+  {key:"takeovers",label:"Takeover",count:"takeovers"},
+  {key:"cors",label:"CORS",count:"cors"},
   {key:"live",label:"Live",count:"live"},
   {key:"fuzz",label:"Fuzz",count:"fuzz"},
   {key:"logs",label:"Logs"},
@@ -146,13 +150,16 @@ function renderTab(body){
 function renderOverview(body){
   const c=state.current.counts||{};
   const cards=[["subdomains","Subdomains"],["urls","URLs"],["juicy_urls","Juicy URLs"],
-    ["param_urls","URLs w/ params"],["files","Files"],["jslinks","Endpoints"],
+    ["param_urls","URLs w/ params"],["files","Files"],["jslinks","JS links"],
+    ["endpoints","API endpoints"],
     ["params","Parameters"],["live","Live hosts"],["fuzz","Fuzz hits"]];
   const grid=el("div",{class:"stats"});
   for(const [k,l] of cards) grid.append(el("div",{class:"stat"},el("div",{class:"n"},c[k]||0),el("div",{class:"l"},l)));
   grid.append(el("div",{class:"stat alert"},el("div",{class:"n"},c.secrets||0),el("div",{class:"l"},"Secrets")));
   grid.append(el("div",{class:"stat alert"},el("div",{class:"n"},c.reflections||0),el("div",{class:"l"},"Reflections")));
   grid.append(el("div",{class:"stat alert"},el("div",{class:"n"},c.openredirects||0),el("div",{class:"l"},"Open Redirects")));
+  grid.append(el("div",{class:"stat alert"},el("div",{class:"n"},c.takeovers_vuln||0),el("div",{class:"l"},"Takeover risk")));
+  grid.append(el("div",{class:"stat alert"},el("div",{class:"n"},c.cors_high||0),el("div",{class:"l"},"CORS issues")));
   body.append(grid);
   const mf=el("div",{class:"card",style:"margin-top:8px"},
     el("h3",{style:"margin:0 0 10px"},"Master files"),
@@ -160,8 +167,11 @@ function renderOverview(body){
       masterBtn("subdomains.txt","Subdomains"),
       masterBtn("urls.txt","All URLs"),
       masterBtn("parameters.txt","Parameters"),
+      masterBtn("endpoints.txt","API Endpoints"),
       masterBtn("reflected.txt","Reflected"),
-      masterBtn("openredirect.txt","Open redirects")));
+      masterBtn("openredirect.txt","Open redirects"),
+      masterBtn("takeover.txt","Takeover"),
+      masterBtn("cors.txt","CORS")));
   body.append(mf);
 }
 function masterBtn(suffix,label){
@@ -193,8 +203,16 @@ function renderDataTab(body, tab){
                select("variant",["","live","archived"],body,tab));
   }
   if(tab==="jslinks"){ bar.append(select("kind",["","url","file","path"],body,tab)); }
+  if(tab==="endpoints"){
+    bar.append(el("input",{type:"text",placeholder:"status code",style:"width:110px",
+        value:state.filters[tab]?.status||"",oninput:e=>{state.filters[tab]={...(state.filters[tab]||{}),status:e.target.value};state.page[tab]=0;debounceLoad(body,tab);}}),
+      select("method",["","GET","OPTIONS","POST","PUT","PATCH","DELETE"],body,tab),
+      select("inferred",["","0","1"],body,tab));
+  }
   if(tab==="live"){ bar.append(el("input",{type:"text",placeholder:"status code",style:"width:120px",
       value:state.filters[tab]?.status||"",oninput:e=>{state.filters[tab]={status:e.target.value};state.page[tab]=0;debounceLoad(body,tab);}})); }
+  if(tab==="takeovers"){ bar.append(select("status",["","vulnerable","dangling","claimed"],body,tab)); }
+  if(tab==="cors"){ bar.append(select("severity",["","high","medium","low","info"],body,tab)); }
   bar.append(el("div",{class:"grow"}));
   bar.append(el("a",{class:"btn sm",href:`/api/targets/${t.id}/export/${tab}.csv`,target:"_blank"},"⬇ CSV"));
   body.append(bar);
@@ -222,7 +240,10 @@ async function loadData(holder,tab){
   if(tab==="urls"){ url+=`&juicy=${f.juicy?1:0}&params=${f.params?1:0}`; }
   if(tab==="files"){ if(f.kind)url+=`&kind=${f.kind}`; if(f.variant)url+=`&variant=${f.variant}`; }
   if(tab==="jslinks"&&f.kind){ url+=`&kind=${f.kind}`; }
+  if(tab==="endpoints"){ if(f.status)url+=`&status=${encodeURIComponent(f.status)}`; if(f.method)url+=`&method=${f.method}`; if(f.inferred!==undefined&&f.inferred!=="")url+=`&inferred=${f.inferred}`; }
   if(tab==="live"&&f.status){ url+=`&status=${encodeURIComponent(f.status)}`; }
+  if(tab==="takeovers"&&f.status){ url+=`&status=${encodeURIComponent(f.status)}`; }
+  if(tab==="cors"&&f.severity){ url+=`&severity=${encodeURIComponent(f.severity)}`; }
   holder.innerHTML="<div class='muted' style='padding:20px'>loading…</div>";
   let data; try{ data=await api("GET",url); }catch(e){ holder.innerHTML=`<div class='muted'>${e.message}</div>`; return; }
   holder.innerHTML="";
@@ -246,6 +267,16 @@ function colsFor(tab){
     {k:"title",label:"title"},{k:"content_type",label:"type"},{k:"content_length",label:"len"},{k:"via_proxy",label:"proxy"}];
   if(tab==="fuzz") return [{k:"found_url",cls:"mono",label:"found"},{k:"status_code",label:"code",sc:true},
     {k:"content_type",label:"type"},{k:"length",label:"len"},{k:"base_url",cls:"mono",label:"base"}];
+  if(tab==="endpoints") return [{k:"status_code",label:"code",sc:true},{k:"method",label:"method"},
+    {k:"url",cls:"mono",label:"URL"},{k:"content_type",label:"type"},{k:"content_length",label:"len"},
+    {k:"allow",label:"allow"},{k:"host_inferred",label:"inferred"},{k:"source_file",cls:"mono",label:"from JS"},
+    {k:"path",cls:"mono",label:"path"}];
+  if(tab==="takeovers") return [{k:"severity",label:"sev",sev:true},{k:"status",label:"status"},
+    {k:"host",cls:"mono",label:"host"},{k:"provider",label:"provider"},{k:"cname",cls:"mono",label:"cname"},
+    {k:"a_record",cls:"mono",label:"A"},{k:"evidence",label:"evidence"}];
+  if(tab==="cors") return [{k:"severity",label:"sev",sev:true},{k:"url",cls:"mono",label:"URL"},
+    {k:"acao",cls:"mono",label:"ACAO"},{k:"acac",label:"creds"},{k:"set_cookie",label:"cookie"},
+    {k:"status_code",label:"code",sc:true},{k:"note",label:"note"}];
   return (COLS[tab]||[]).map(([k,cls])=>({k,cls:cls&&cls!=="sc"?cls:null,sc:cls==="sc",label:k}));
 }
 function renderRow(tab,row,cols){
@@ -305,15 +336,35 @@ function runModal(){
   for(const s of SUBSOURCES) srcBoxes.append(el("label",{}, el("input",{type:"checkbox",...(s==="subfinder"?{}:{checked:"checked"}),"data-src":s}), s));
   const paste=el("textarea",{rows:4,placeholder:"paste subdomains (one per line) — skips needing crt.sh if you want"});
   const subindex=el("textarea",{rows:3,placeholder:"paste subindex output here (optional)"});
+  const oos=el("textarea",{rows:2,placeholder:"out-of-scope hosts (one per line): www.8x8.com, *.msteams.8x8.com, jitsi.org — active steps skip these"});
   const subindexFile=el("input",{type:"file"});
-  const fromY=el("input",{type:"number",value:2020,style:"width:90px"});
+  const fromY=el("input",{type:"number",placeholder:"all",style:"width:90px"});
   const toY=el("input",{type:"number",placeholder:"now",style:"width:90px"});
-  const batch=el("input",{type:"number",value:5000,style:"width:100px"});
+  const batch=el("input",{type:"number",value:50000,style:"width:100px"});
+  const wbMax=el("input",{type:"number",value:0,style:"width:100px",title:"max archive urls to harvest, 0=all"});
   const depth=el("input",{type:"number",value:3,style:"width:70px"});
   const vlive=el("input",{type:"checkbox",checked:"checked"}), varch=el("input",{type:"checkbox",checked:"checked"});
   const reflUrls=el("input",{type:"number",value:400,style:"width:90px"});
   const reflParams=el("input",{type:"number",value:1024,style:"width:90px"});
   const paramsFile=el("input",{type:"file"});
+  // archive engine + scale caps
+  const engineSel=el("select",{},...["both","cdx","waymore"].map(o=>el("option",{value:o},o)));
+  const disableProxy=el("input",{type:"checkbox",title:"Run entirely on the direct VPS IP \u2014 no proxy fallback, waymore runs direct"});
+  const wmTimeout=el("input",{type:"number",value:0,style:"width:90px",title:"waymore overall timeout (s), 0=none"});
+  const wmLimit=el("input",{type:"number",value:0,style:"width:90px",title:"waymore per-source request limit, 0=none"});
+  const maxFiles=el("input",{type:"number",value:0,style:"width:90px",title:"max juicy files to download, 0=all"});
+  const maxSnaps=el("input",{type:"number",value:25,style:"width:80px",title:"max archived captures per file"});
+  const liveMax=el("input",{type:"number",value:8000,style:"width:90px"});
+  const orMax=el("input",{type:"number",value:1500,style:"width:90px"});
+  const fzDirs=el("input",{type:"number",value:300,style:"width:80px"});
+  const fzWords=el("input",{type:"number",value:0,style:"width:80px",title:"0=all words"});
+  // API endpoint probing
+  const epMethodBoxes=el("div",{class:"steps"});
+  for(const mm of EPMETHODS) epMethodBoxes.append(el("label",{}, el("input",{type:"checkbox",...(mm==="DELETE"?{}:{checked:"checked"}),"data-epm":mm}), mm));
+  const epMaxPaths=el("input",{type:"number",value:8000,style:"width:90px",title:"max distinct endpoint paths to probe, 0=all"});
+  const epInferred=el("input",{type:"number",value:3,style:"width:70px",title:"also test each API path against this many inferred API hosts"});
+  const epScan=el("input",{type:"checkbox",checked:"checked"});
+  const epWorkers=el("input",{type:"number",value:20,style:"width:70px",title:"concurrent endpoint probe workers"});
 
   const card=el("div",{class:"card"},
     el("h3",{},"Run recon — "+t.name),
@@ -323,16 +374,40 @@ function runModal(){
     el("div",{class:"field"},el("label",{},"Paste subdomains (optional)"),paste),
     el("div",{class:"field"},el("label",{},"Subindex output (optional)"),subindex),
     el("div",{class:"field"},el("label",{},"Subindex file upload (optional)"),subindexFile),
-    el("div",{class:"row wrap",style:"gap:14px;margin:8px 0"},
+    el("div",{class:"field"},el("label",{},"Out-of-scope hosts (program exclusions)"),oos),
+    el("b",{},"Archive engine"),
+    el("div",{class:"row wrap",style:"gap:14px;margin:6px 0"},
+      el("label",{class:"row"},"engine",engineSel),
+      el("label",{class:"row"},"waymore timeout s",wmTimeout),
+      el("label",{class:"row"},"req limit",wmLimit),
+      el("label",{class:"row"},disableProxy,"proxyless (direct IP only)")),
+    el("div",{class:"row wrap",style:"gap:14px"},
       el("label",{class:"row"},"Wayback years",fromY,"→",toY),
       el("label",{class:"row"},"Batch",batch),
+      el("label",{class:"row"},"max urls",wbMax),
       el("label",{class:"row"},"Recursion depth",depth)),
-    el("div",{class:"row wrap",style:"gap:14px"},
+    el("div",{class:"row wrap",style:"gap:14px;margin-top:8px"},
       el("label",{class:"row"},vlive,"download live"),
       el("label",{class:"row"},varch,"download archived"),
+      el("label",{class:"row"},"max files",maxFiles),
+      el("label",{class:"row"},"max snapshots/file",maxSnaps)),
+    el("div",{class:"row wrap",style:"gap:14px;margin-top:8px"},
       el("label",{class:"row"},"refl. URLs",reflUrls),
-      el("label",{class:"row"},"refl. params",reflParams)),
-    el("div",{class:"field"},el("label",{},"Base params.txt (optional upload)"),paramsFile),
+      el("label",{class:"row"},"refl. params",reflParams),
+      el("label",{class:"row"},"open-redir URLs",orMax)),
+    el("div",{class:"row wrap",style:"gap:14px;margin-top:8px"},
+      el("label",{class:"row"},"live max",liveMax),
+      el("label",{class:"row"},"fuzz dirs",fzDirs),
+      el("label",{class:"row"},"fuzz words",fzWords)),
+    el("b",{},"API endpoint probing"),
+    el("div",{class:"muted",style:"font-size:12px;margin-bottom:4px"},"Probes JS-discovered endpoints with these verbs; 404s and WAF-403s are dropped, everything else (200/401/403/422/405…) is saved with its parent JS file."),
+    epMethodBoxes,
+    el("div",{class:"row wrap",style:"gap:14px;margin-top:6px"},
+      el("label",{class:"row"},"max endpoint paths",epMaxPaths),
+      el("label",{class:"row"},"inferred API hosts",epInferred),
+      el("label",{class:"row"},"probe workers",epWorkers),
+      el("label",{class:"row"},epScan,"re-scan JS for api-calls")),
+    el("div",{class:"field",style:"margin-top:8px"},el("label",{},"Base params.txt (optional upload)"),paramsFile),
     el("div",{class:"row spread",style:"margin-top:14px"},
       el("button",{class:"btn",onclick:closeModal},"Cancel"),
       el("button",{class:"btn primary",onclick:async()=>{
@@ -345,10 +420,20 @@ function runModal(){
         const variants=[]; if(vlive.checked)variants.push("live"); if(varch.checked)variants.push("archived");
         const opt={ excluded_steps:excluded, subdomain_sources:sources,
           paste_subdomains:paste.value, subindex_output:subindex.value,
-          wayback_from_year:+fromY.value||2020, wayback_to_year:+toY.value||0,
-          wayback_batch_size:+batch.value||5000, max_recursion_depth:+depth.value||3,
-          download_variants:variants, reflection_max_urls:+reflUrls.value||400,
-          reflection_max_params:+reflParams.value||1024 };
+          out_of_scope:oos.value,
+          archive_engine:engineSel.value, disable_proxy:disableProxy.checked,
+          waymore_run_timeout:+wmTimeout.value||0, waymore_limit_requests:+wmLimit.value||0,
+          wayback_from_year:+fromY.value||0, wayback_to_year:+toY.value||0,
+          wayback_batch_size:+batch.value||50000, wayback_max_urls:+wbMax.value||0,
+          max_recursion_depth:+depth.value||3,
+          download_variants:variants, max_files:+maxFiles.value||0,
+          max_snapshots_per_url:+maxSnaps.value||25,
+          reflection_max_urls:+reflUrls.value||400, reflection_max_params:+reflParams.value||1024,
+          openredirect_max_urls:+orMax.value||1500, livecheck_max_urls:+liveMax.value||8000,
+          fuzz_max_base_dirs:+fzDirs.value||300, fuzz_max_words:+fzWords.value||0,
+          endpoint_methods:EPMETHODS.filter(mm=>$(`[data-epm="${mm}"]`,epMethodBoxes).checked),
+          endpoint_max_paths:+epMaxPaths.value||0, endpoint_inferred_hosts:+epInferred.value||3,
+          endpoint_workers:+epWorkers.value||20, endpoint_scan_files:epScan.checked };
         try{ await api("POST",`/api/targets/${t.id}/start`,opt); toast("recon started"); closeModal();
           await loadTargets(); state.tab="logs"; renderTarget(); }
         catch(e){ toast(e.message); }
@@ -380,35 +465,74 @@ function newTargetModal(){
 /* ---------- settings ---------- */
 async function settingsModal(){
   const s=await api("GET","/api/settings");
-  const banner=el("div",{class:"banner"},"⚠ Proxy credentials are stored only on this server. Rotate any credentials you shared elsewhere.");
-  const proxies=el("textarea",{rows:3,placeholder:"host:port:user:pass  (one per line)"});
-  const dlw=el("input",{type:"number",value:s.download_workers,style:"width:80px"});
-  const chw=el("input",{type:"number",value:s.check_workers,style:"width:80px"});
-  const fzw=el("input",{type:"number",value:s.fuzz_workers,style:"width:80px"});
-  const conc=el("input",{type:"number",value:s.max_concurrent_jobs,style:"width:80px"});
-  const delay=el("input",{type:"number",value:s.request_delay_ms,style:"width:80px"});
+  const banner=el("div",{class:"banner"},"⚠ Proxy credentials & API keys are stored only on this server (data/config.json) and are masked here. Rotate anything you shared elsewhere.");
+  const proxies=el("textarea",{rows:3,placeholder:"host:port:user:pass  (one per line) — used automatically when the direct IP is WAF/rate-limit blocked"});
+  // api keys
+  function keyField(label,key){
+    const set=s[key+"_set"]; const hint=s[key+"_hint"]||"";
+    const inp=el("input",{type:"password",placeholder:set?("set ("+hint+") — leave blank to keep"):"not set",style:"width:100%","data-key":key});
+    return el("div",{class:"field"},el("label",{},label+" "+(set?"✓":"—")),inp);
+  }
+  const urlscan=keyField("URLScan API key","urlscan_api_key");
+  const otx=keyField("AlienVault OTX API key","otx_api_key");
+  const vt=keyField("VirusTotal API key","virustotal_api_key");
+  const ix=keyField("Intelligence X API key","intelx_api_key");
+  // archive engine + waymore
+  const engine=el("select",{},...["waymore","both","cdx"].map(o=>el("option",{value:o,...(s.archive_engine===o?{selected:"selected"}:{})},o)));
+  const wproc=numIn(s.waymore_processes,"80"); const wto=numIn(s.waymore_run_timeout,"110");
+  const wlim=numIn(s.waymore_limit_requests,"110"); const cooldown=numIn(s.block_cooldown_sec,"90");
+  const caps=numIn(s.max_snapshots_per_url,"80");
+  const tt=el("input",{type:"checkbox",...(s.archive_timetravel?{checked:"checked"}:{})});
+  const subs=el("input",{type:"checkbox",...(s.waymore_include_subs?{checked:"checked"}:{})});
+  // workers
+  const dlw=numIn(s.download_workers,"70"); const chw=numIn(s.check_workers,"70");
+  const fzw=numIn(s.fuzz_workers,"70"); const conc=numIn(s.max_concurrent_jobs,"70");
+  const delay=numIn(s.request_delay_ms,"70");
   const pw=el("input",{type:"password",placeholder:"new password",style:"width:100%"});
   const cur=el("div",{class:"muted mono",style:"font-size:11px"}, (s.proxies||[]).join("  |  ")||"no proxies configured");
   const card=el("div",{class:"card"}, el("h3",{},"Settings"), banner,
-    el("div",{},"Active impersonation: ",el("span",{class:"code"},s.impersonate_active||s.impersonate)),
+    el("div",{},"Active impersonation: ",el("span",{class:"code"},s.impersonate_active||s.impersonate),
+        "  ·  proxies: ",el("span",{class:"code"},String(s.proxy_count||0))),
+    el("h4",{style:"margin:14px 0 4px"},"Passive-source API keys (used by waymore + subdomain enum)"),
+    urlscan,otx,vt,ix,
+    el("h4",{style:"margin:14px 0 4px"},"Archive engine"),
+    el("div",{class:"row wrap",style:"gap:14px"},
+      el("label",{class:"row"},"engine",engine),
+      el("label",{class:"row"},"waymore -p",wproc),
+      el("label",{class:"row"},"run timeout s",wto),
+      el("label",{class:"row"},"req limit",wlim)),
+    el("div",{class:"row wrap",style:"gap:14px;margin-top:8px"},
+      el("label",{class:"row"},subs,"include subdomains"),
+      el("label",{class:"row"},tt,"archive time-travel"),
+      el("label",{class:"row"},"max snapshots/file",caps),
+      el("label",{class:"row"},"block cooldown s",cooldown)),
+    el("h4",{style:"margin:14px 0 4px"},"Proxies"),
     el("div",{class:"field"},el("label",{},"Configured proxies (masked)"),cur),
     el("div",{class:"field"},el("label",{},"Set proxies (replaces list)"),proxies),
+    el("h4",{style:"margin:14px 0 4px"},"Concurrency"),
     el("div",{class:"row wrap",style:"gap:14px"},
       el("label",{class:"row"},"download",dlw),el("label",{class:"row"},"check",chw),
-      el("label",{class:"row"},"fuzz",fzw),el("label",{class:"row"},"concurrency",conc),
+      el("label",{class:"row"},"fuzz",fzw),el("label",{class:"row"},"jobs",conc),
       el("label",{class:"row"},"delay ms",delay)),
-    el("div",{class:"field"},el("label",{},"Change admin password"),pw),
+    el("div",{class:"field",style:"margin-top:10px"},el("label",{},"Change admin password"),pw),
     el("div",{class:"row spread",style:"margin-top:12px"}, el("button",{class:"btn",onclick:closeModal},"Close"),
       el("button",{class:"btn primary",onclick:async()=>{
         const body={ download_workers:+dlw.value, check_workers:+chw.value,
-          fuzz_workers:+fzw.value, max_concurrent_jobs:+conc.value, request_delay_ms:+delay.value };
+          fuzz_workers:+fzw.value, max_concurrent_jobs:+conc.value, request_delay_ms:+delay.value,
+          archive_engine:engine.value, waymore_processes:+wproc.value, waymore_run_timeout:+wto.value,
+          waymore_limit_requests:+wlim.value, waymore_include_subs:subs.checked,
+          archive_timetravel:tt.checked, max_snapshots_per_url:+caps.value, block_cooldown_sec:+cooldown.value };
         const px=proxies.value.split("\n").map(x=>x.trim()).filter(Boolean);
         if(px.length) body.proxies=px;
+        for(const inp of [urlscan,otx,vt,ix].map(f=>$("input",f))){
+          const v=inp.value.trim(); if(v) body[inp.getAttribute("data-key")]=v;
+        }
         if(pw.value) body.new_password=pw.value;
         try{ await api("POST","/api/settings",body); toast("saved"); closeModal(); }catch(e){toast(e.message);}
       }},"Save")));
   modal(card);
 }
+function numIn(val,w){ return el("input",{type:"number",value:(val==null?0:val),style:"width:"+(w||"80")+"px"}); }
 
 /* ---------- polling ---------- */
 function startPolling(){
