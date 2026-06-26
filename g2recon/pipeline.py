@@ -366,6 +366,7 @@ class PipelineRunner:
                 analyzable = False
             if rec.get("ok") and rec.get("text") and analyzable:
                 analysis = jsanalyze.analyze(rec["text"], rec["url"], self.root)
+            rec["analyzed"] = analysis is not None
             with self._lock:
                 store.add_file(self.session, self.target_id, rec)
                 if analysis:
@@ -452,12 +453,12 @@ class PipelineRunner:
         if isinstance(methods, str):
             methods = [m.strip() for m in methods.split(",") if m.strip()]
         max_paths = int(self.options.get("endpoint_max_paths")
-                        if self.options.get("endpoint_max_paths") is not None else 8000)
+                        if self.options.get("endpoint_max_paths") is not None else 30000)
         max_inferred = int(self.options.get("endpoint_inferred_hosts")
                            if self.options.get("endpoint_inferred_hosts") is not None else 3)
         scan_files = bool(self.options.get("endpoint_scan_files", True))
         scan_max = int(self.options.get("endpoint_scan_max_files")
-                       if self.options.get("endpoint_scan_max_files") is not None else 4000)
+                       if self.options.get("endpoint_scan_max_files") is not None else 20000)
 
         hosts = self._in_scope_hosts()
         # hosts that actually served API-looking paths = strong API-host signal

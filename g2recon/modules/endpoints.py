@@ -278,10 +278,15 @@ def _round_robin(buckets: dict) -> list:
 
 
 def select_and_build(items, root: str, api_hosts: list[str], *,
-                     max_paths: int = 8000, max_inferred: int = 3):
+                     max_paths: int = 30000, max_inferred: int = 3):
     """De-dup raw (link, kind, source_file) by host+collapsed-path signature,
-    prioritise API-looking paths and spread across hosts, cap to ``max_paths``
-    distinct endpoints, then build the absolute candidate URLs to probe.
+    prioritise API-looking paths and spread across hosts, then build the
+    absolute candidate URLs to probe.
+
+    The probe budget (``max_paths``) caps only the non-API ("other") paths:
+    API-looking paths (api/v1/graphql/auth/admin/user/...) are the high-value
+    surface and are NEVER dropped for the budget, so API coverage is always
+    complete even on very large targets.
 
     Returns ``(candidates, n_unique_paths)``."""
     from collections import defaultdict, deque
@@ -312,9 +317,14 @@ def select_and_build(items, root: str, api_hosts: list[str], *,
     buckets_other: dict[str, deque] = defaultdict(deque)
     for (raw, kind, src, host, isapi) in reps.values():
         (buckets_api if isapi else buckets_other)[host].append((raw, kind, src))
-    ordered = _round_robin(buckets_api) + _round_robin(buckets_other)
-    if max_paths and len(ordered) > max_paths:
-        ordered = ordered[:max_paths]
+    api_order = _round_robin(buckets_api)
+    other_order = _round_robin(buckets_other)
+    # never truncate API paths; cap only the non-API surface to bound the budget
+    if max_paths and (len(api_order) + len(other_order)) > max_paths:
+        room = max(0, max_paths - len(api_order))
+        ordered = api_order + other_order[:room]
+    else:
+        ordered = api_order + other_order
     cands: list[dict] = []
     for (raw, kind, src) in ordered:
         cands.extend(build_candidates(raw, kind, src, root, api_hosts,
@@ -402,6 +412,31 @@ def _worth_recording(url: str, status: int, ctype: str) -> bool:
     if status in (401, 402, 403, 409, 422, 423):
         return True
     return False
+
+
+def _drop_static_catchall(recs: list[dict]) -> list[dict]:
+    """Drop a URL's records when 3+ different verbs all return a (near-)identical
+    200 HTML body.
+
+    That signature is a static SPA / marketing catch-all page — e.g. a
+    ``/glossary/api/`` doc page that serves the exact same HTML (same
+    content-length) for GET/POST/PUT/PATCH/OPTIONS — NOT a real multi-method API
+    endpoint. The per-host soft-404 baseline can't catch this because the page is
+    a genuine 200 (random sibling paths still 404). Genuine APIs return
+    JSON/empty bodies or differing statuses per verb, so they are unaffected; a
+    lone GET-200 HTML page (an API docs page) is also kept (threshold is 3)."""
+    html200 = [r for r in recs if r.get("status_code") == 200
+               and "html" in (r.get("content_type") or "").lower()]
+    if len(html200) < 3:
+        return recs
+    lens = sorted(r.get("content_length", 0) for r in html200)
+    med = lens[len(lens) // 2]
+    tol = max(64, int(med * 0.02))
+    near = [r for r in html200 if abs(r.get("content_length", 0) - med) <= tol]
+    if len(near) < 3:
+        return recs
+    drop = {id(r) for r in near}
+    return [r for r in recs if id(r) not in drop]
 
 
 class EndpointProber:
@@ -527,6 +562,9 @@ class EndpointProber:
             rec = self._probe_method(url, m)
             if rec:
                 recs.append(rec)
+        # cross-method guard: kill static SPA/marketing catch-all pages that
+        # answer every verb with the same 200 HTML (not real API endpoints)
+        recs = _drop_static_catchall(recs)
         for rec in recs:
             rec.update({"path": cand.get("path", ""),
                         "source_file": cand.get("source_file", ""),

@@ -51,12 +51,14 @@ def add_file(session, target_id: int, rec: dict) -> int:
            "archive_ts": rec.get("archive_ts", ""), "path": rec.get("path", ""),
            "size": rec.get("size", 0), "sha256": rec.get("sha256", ""),
            "status_code": rec.get("status_code", 0),
-           "content_type": rec.get("content_type", ""), "depth": rec.get("depth", 0)}
+           "content_type": rec.get("content_type", ""), "depth": rec.get("depth", 0),
+           "analyzed": bool(rec.get("analyzed", False))}
     stmt = sqlite_insert(FileRecord).values(**row).on_conflict_do_update(
         index_elements=["target_id", "url", "variant", "archive_ts"],
         set_={"status_code": row["status_code"], "size": row["size"],
               "sha256": row["sha256"], "path": row["path"],
-              "content_type": row["content_type"], "parent_url": row["parent_url"]})
+              "content_type": row["content_type"], "parent_url": row["parent_url"],
+              "analyzed": row["analyzed"]})
     session.execute(stmt)
     session.commit()
     return 1

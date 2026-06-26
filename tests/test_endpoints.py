@@ -316,6 +316,56 @@ def test_5xx_on_api_is_recorded():
     assert any(h["status_code"] == 500 and h["method"] == "POST" for h in hits)
 
 
+def test_drop_static_catchall_multimethod_html():
+    # /glossary/api/ : a real 200 page that serves the SAME html for every verb
+    # (static SPA/marketing catch-all) -> dropped despite /api/ making it strong-api
+    HTML = "<html><head><title>API glossary</title></head><body>" + ("g" * 8000) + "</body></html>"
+    rules = [
+        (r"GET|OPTIONS|POST|PUT|PATCH", r"/glossary/api", lambda m, u: _r(200, HTML, "text/html")),
+        (r".*", r".*", lambda m, u: _r(404)),
+    ]
+    pr = ep.EndpointProber(FakeClient(rules), methods=["GET", "OPTIONS", "POST", "PUT", "PATCH"])
+    hits = _run(pr, [{"url": "https://www.adjust.com/glossary/api/", "path": "/glossary/api/",
+                      "source_file": "x.js", "host_inferred": False}])
+    assert hits == []        # identical 200 html across 5 verbs -> static catch-all
+
+
+def test_drop_static_catchall_keeps_real_json_api():
+    # a genuine JSON API answering multiple verbs is NOT a static catch-all
+    rules = [
+        (r"GET|POST|PUT", r"/api/data", lambda m, u: _r(200, '{"ok":1}', "application/json")),
+        (r".*", r".*", lambda m, u: _r(404)),
+    ]
+    pr = ep.EndpointProber(FakeClient(rules), methods=["GET", "OPTIONS", "POST", "PUT"])
+    hits = _run(pr, [{"url": "https://api.adjust.com/api/data", "path": "/api/data",
+                      "source_file": "x.js", "host_inferred": False}])
+    methods = {h["method"] for h in hits}
+    assert {"GET", "POST", "PUT"} <= methods     # json multi-verb endpoint kept
+
+
+def test_drop_static_catchall_keeps_single_html_doc():
+    # a lone GET-200 html docs page on a strong-api path stays (threshold is 3)
+    rules = [
+        (r"GET", r"/api/reference", lambda m, u: _r(200, "<html>docs</html>", "text/html")),
+        (r".*", r".*", lambda m, u: _r(404)),
+    ]
+    pr = ep.EndpointProber(FakeClient(rules), methods=["GET", "OPTIONS", "POST", "PUT", "PATCH"])
+    hits = _run(pr, [{"url": "https://dev.adjust.com/api/reference", "path": "/api/reference",
+                      "source_file": "x.js", "host_inferred": False}])
+    assert len(hits) == 1 and hits[0]["method"] == "GET"
+
+
+def test_select_and_build_never_truncates_api():
+    items = [(f"/api/x{i}", "path", "https://api.adjust.com/a.js") for i in range(50)]
+    items += [(f"/company/p{i}", "path", "https://www.adjust.com/a.js") for i in range(50)]
+    cands, n = ep.select_and_build(items, "adjust.com", ["api.adjust.com"], max_paths=60)
+    paths = {ep.clean_path(x["path"]) for x in cands}
+    api_kept = {p for p in paths if p.startswith("/api/")}
+    other_kept = {p for p in paths if p.startswith("/company/")}
+    assert len(api_kept) == 50           # API paths are NEVER dropped for the budget
+    assert len(other_kept) <= 10         # only the non-API surface is capped
+
+
 def test_waymore_cmd_prefers_console_script():
     # must never fall back to the broken `python -m waymore` when a console
     # script exists (this waymore package has no __main__)
