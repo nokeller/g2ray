@@ -123,7 +123,7 @@ class HttpClient:
         # real HTTP status (even 404/403/timeout-with-status) counts as alive.
         self._fail: dict[str, int] = {}
         self._dead_until: dict[str, float] = {}
-        self._dead_threshold = 2
+        self._dead_threshold = 3
         self._dead_cooldown = 300
 
     # -- host block bookkeeping -------------------------------------------
@@ -190,7 +190,14 @@ class HttpClient:
         if not host:
             return
         with self._block_lock:
-            self._fail.pop(host, None)
+            n = self._fail.get(host, 0)
+            # decay (not full reset) so a FLAKY host — one that times out on many
+            # probes but occasionally answers — still trends toward benched
+            # instead of resetting its failure count on every lucky success.
+            if n <= 1:
+                self._fail.pop(host, None)
+            else:
+                self._fail[host] = n - 1
             self._dead_until.pop(host, None)
 
     # -- session management (thread-local) ---------------------------------

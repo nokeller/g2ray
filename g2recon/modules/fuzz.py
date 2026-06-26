@@ -28,6 +28,10 @@ LogFn = Callable[[str, str], None]
 
 DEFAULT_EXTS = ["js", "json", "map", "txt", "xml", "config", "cfg", "env",
                 "bak", "old", "yml", "yaml"]
+# bulk content-discovery probes use a short timeout: a flaky/slow host should
+# fast-fail (and trip the client's per-host circuit breaker) rather than stall
+# the sweep on the full 25s default for every dead filename.
+FUZZ_TIMEOUT = 8
 RECORD_STATUS = {200, 201, 202, 203, 204, 206, 301, 302, 307, 308,
                  401, 403, 405}
 
@@ -56,14 +60,14 @@ class Fuzzer:
         bl: dict[str, tuple[int, int]] = {}
         for ext in self.exts:
             u = f"{base}{_rand()}.{ext}"
-            r = self.client.get(u, allow_redirects=False)
+            r = self.client.get(u, allow_redirects=False, timeout=FUZZ_TIMEOUT)
             bl[ext] = (r.status, len(r.content))
         return bl
 
     def _probe(self, base: str, word: str, ext: str,
                baseline: tuple[int, int]) -> dict | None:
         url = f"{base}{word}.{ext}"
-        r = self.client.get(url, allow_redirects=False)
+        r = self.client.get(url, allow_redirects=False, timeout=FUZZ_TIMEOUT)
         if r.error:
             return None
         if r.status == 404 or r.status not in RECORD_STATUS:
