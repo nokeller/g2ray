@@ -464,3 +464,4 @@
 435	OK	direct	500	496	https://blog.securitybreached.org/2018/01/27/how-i-was-able-to-download-any-file-from-web-server/
 438	OK	direct	500	685	https://blog.securitybreached.org/2018/02/04/hunting-insecure-direct-object-reference-vulnerabilities-for-fun-and-profit-part-1/
 465	LOW	direct	200	8	https://bitquark.co.uk/blog/2014/08/31/popping_a_shell_on_the_oculus_developer_portal
+453	OK	wayback	200	513	https://shahmeeramir.com/how-a-simple-idor-become-a-4k-user-impersonation-vulnerability-705291b55c0d
