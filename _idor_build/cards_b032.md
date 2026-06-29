@@ -1,0 +1,13 @@
+### [138] Larksuite 1-month hunt (15 bugs) — recon-from-docs + admin space-manage IDOR (userID+parentToken), tenant-join via `TestTenantID` swap, self-approve app privesc, API version-downgrade & UI-only authz — Snapsec [NEW ★★ enterprise SaaS BAC master set]
+- Where: Lark collaboration suite (messenger/docs/calendar/meetings), heavy RBAC + file sharing.
+- Approach/how-found (reusable techniques):
+  - **Recon from product material**: read the docs, official YouTube tutorials, third-party walkthroughs, and helpdesk/community Q&A to learn every feature/role *before* tooling.
+  - **Admin folder IDOR (read+write)**: `GET /suite/admin/space_manage/user_folder?userID=<id>` returns a user's directories + tokens; add `&parentToken=<token>` to list files (each with a download token); `POST` the same endpoint to create folders in others' dirs.
+  - **Tenant takeover (critical)**: `POST /sandbox/AddTestTenantMember {"TestTenantID":<random numeric>,"Email":...}` — swap `TestTenantID` → join ANY tenant → read its files/chats (incl. Lark's own internal tenant).
+  - **Self-approve app → mass privesc**: a low-priv "App management" user calls `PUT /suite/admin/appcenter/app/<id>/auditWhiteList {"audit_white_list_status":1}` to approve his own app → the app token grants admin-level APIs.
+  - **Scope-field emptying**: adding a user as a sub-dept admin with `"departments":[]` (empty) adds them to the MAIN org.
+  - **UI-only authz**: admin logs `GET /suite/admin/logs/` and other actions are blocked only in the UI — the API returns full data to a low-priv user.
+  - **API version downgrade**: comments `GET /space/api/message/get_message.v3/` → 403; change `v3`→`v2` → returns the comments (older version skips the check).
+  - **Helpdesk file IDOR**: private ticket files live at a guessable file-id URL viewable by teammates; a viewer can even permanently delete an admin's trash via `trash/delete` with the folder id.
+- Test: learn the product from its own docs/videos first; on enterprise SaaS hammer admin `space_manage`/`employees`/`logs`/`appcenter` endpoints from a low-priv role; swap tenant/org ids; empty scope arrays (`departments:[]`); downgrade API versions (`v3`→`v2`/`v1`); self-approve apps; treat every missing/disabled UI control as API-reachable.
+- Q: "Can a low-priv role hit admin space/employee/log/app endpoints directly? Can I swap a tenant/org id to join another tenant? Does emptying a scope array widen my reach? Does an older API version skip the authz the new one enforces? Can I self-approve an app for a token?"
