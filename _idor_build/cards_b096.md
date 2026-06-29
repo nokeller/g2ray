@@ -1,0 +1,29 @@
+### [62] Faveo Service Desk 5.0.1 (CVE-2023-24625) — IDOR by `user id` swap leaks other users' PII; and DROPPING the `client` param escalates to admin (join any org, read all tickets) — CUPC4K3 [NEW ★ parameter-removal privilege escalation: deleting a scoping param flips you to admin]
+- Where: Faveo helpdesk profile/user requests; the logged-in user was referenced as id `21`; requests also carried a `client` parameter.
+- Approach/how-found: authenticated as the demo client, proxied his profile request in Burp; the user was `id=21`. Swapping the id returned other users' personal data (work phone, email, mobile). Then he noticed REMOVING the `client` parameter from the request granted admin-only access — letting him add himself to other organizations and view ALL tickets (25 open + 6 closed across orgs) as an ordinary user (CWE-639).
+- Test: swap the numeric user id for cross-user PII; AND try DELETING scoping/context params (`client`, `org`, `tenant`, `role`) entirely — a missing param can make the backend fall back to an unscoped/admin context. Combine id-swap + param-removal.
+- Q: "Does swapping the user id leak PII? What happens if I DELETE the `client`/`org`/`tenant` param — does the server drop to an admin/unscoped view and let me join other orgs?"
+
+### [134] Payatu — delete ANY account: the delete-user request works with the COOKIE removed and accepts ANY `X-Csrf-Token` (e.g. `ABCD`); object id isn't a UUID → unauthenticated mass deletion — Rajesh R [NEW ★ header games: strip the cookie + forge a junk CSRF token; non-UUID id]
+- Where: e-commerce app delete-user endpoint; `X-Csrf-Token` header + cookie; invitation request exposed a `user_number` param.
+- Approach/how-found: intercepted the delete-user request; removing the cookie header entirely still worked (no auth) — but a `X-Csrf-Token` was required (403 without it). He then found the token wasn't validated: any random string like `X-Csrf-Token: ABCD` was accepted. With a guessable (non-UUID) user id, this let an unauthenticated attacker delete anyone's account.
+- Test: on destructive actions, strip the Cookie/Authorization header to test for missing auth; if a CSRF token blocks you, try a junk/placeholder value (servers often check presence, not validity). Treat non-UUID object ids as enumerable.
+- Q: "Does this destructive request still work with the cookie removed? Is the CSRF token actually validated, or does any string pass? Is the target id a guessable non-UUID?"
+
+### [143] Instagram (`$49,500`) — change ANY user's reel thumbnail via `POST /api/v1/media/configure_to_clips_cover_image/` swapping `clips_media_id` — Neeraj Sharma [DUP-reinforce: media-edit endpoint keyed on a media id, no owner check; explore a brand-new feature]
+- Where: Instagram reels "edit cover photo/thumbnail"; `POST /api/v1/media/configure_to_clips_cover_image/` with the reel's `clips_media_id`.
+- Approach/how-found: started on Instagram Ads GraphQL (dry), pivoted to the reels section, found the cover-photo edit feature, intercepted his own thumbnail change, then swapped `clips_media_id` to a victim's reel id → changed any user's reel thumbnail (incl. high-profile accounts).
+- Test: media-edit/cover/crop/caption endpoints reference the media by id — swap it to a foreign media id to modify others' content. Prioritize newly shipped features (reels cover edit) on big targets.
+- Q: "Does this media-edit action (cover/thumbnail/caption/crop) authorize by media-id only? Can I swap `media_id`/`clips_media_id` to modify another user's media?"
+
+### [356] Shopify (`$storeName` IDOR) — `/shops/<storeName>/revenue_data.json` (Exchange App) leaks revenue/traffic of 8,700+ stores; build the tenant wordlist via FDNS reverse-CNAME of `shops.myshopify.com` — Ayoub Fathi [NEW ★ mass-enumerate ALL tenants via Forward-DNS reverse-CNAME, not just guessing ids]
+- Where: Shopify Exchange App internal sales API `/shops/<storeName>/revenue_data.json` (storeName = the IDOR key).
+- Approach/how-found: an alert for newly-appearing endpoints surfaced one leaking a store's revenue (legit only because that store was listed for-sale). He realized the endpoint was IDOR over `$storeName`; a fresh store gave 404, so he mass-checked instead — building a wordlist of ALL store names by querying **Forward DNS (FDNS) for reverse-CNAME records of `shops.myshopify.com`** (813,684 entries) → 12,100 exposed, 8,700 vulnerable, revenue from 2015→present.
+- Test: for tenant-keyed endpoints, don't guess ids — ENUMERATE the whole tenant population via FDNS reverse-CNAME / reverse-IP of the shared host all tenants point to, then mass-test. Monitor for new endpoints; data that's "public by design" for one object is often IDOR-exposed for all.
+- Q: "Is this endpoint keyed on a tenant name/id with no ownership check? Can I enumerate every tenant via FDNS reverse-CNAME of the shared host and mass-harvest? Is 'public for this one' actually leaking for all?"
+
+### [458] Facebook/Parse — download ANY app's analytics report by swapping the `appname` in the CSV export URL: `GET /apps/<appname>--2/analytics_batch?from=&to=` — S. Venkatesh [DUP-reinforce: export/report endpoint keyed on a name string, swappable]
+- Where: Parse (BaaS, FB acquisition) dashboard "export reports to CSV"; `GET https://www.parse.com/apps/<appname>--2/analytics_batch?from=&to=`.
+- Approach/how-found: created two apps under two accounts; the CSV-download request embedded his own app's name; changing `appname` to the other user's app downloaded that app's analytics report — any app's report was downloadable by name.
+- Test: export/download/report endpoints often key on an app/project NAME (string) rather than an authorized id; swap it to another tenant's name. Names are easy to enumerate/guess vs random ids.
+- Q: "Does the export/report/download URL embed an app/project NAME I can swap to fetch another tenant's data? Are those names enumerable?"
