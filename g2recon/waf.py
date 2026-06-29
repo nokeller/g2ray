@@ -21,6 +21,9 @@ class WafVerdict:
 
 # vendor -> (header substrings, body substrings/regex)
 _SIGNATURES: list[tuple[str, list[str], list[str]]] = [
+    ("vercel",
+     ["x-vercel-mitigated", "x-vercel-challenge", "server: vercel"],
+     ["vercel security checkpoint", "_vercel/security"]),
     ("cloudflare",
      ["cf-ray", "cf-chl", "cf-mitigated", "server: cloudflare", "__cf_bm"],
      ["attention required! | cloudflare", "sorry, you have been blocked",
@@ -84,7 +87,8 @@ def detect(status_code: int, headers: dict[str, str] | None, body: str | None) -
             # challenge/blocked phrase is present in the body
             blocked = status_code in (401, 403, 406, 429, 503) or any(
                 p in bblob for p in ("blocked", "denied", "rejected", "captcha",
-                                     "challenge", "limited", "ray id"))
+                                     "challenge", "limited", "ray id", "checkpoint",
+                                     "mitigated", "verify you are"))
             if blocked:
                 return WafVerdict(True, vendor, f"{vendor} signature ({status_code})",
                                   status_code in (429, 503))

@@ -25,6 +25,29 @@ JUICY_NAMES = {
 
 _DOMAIN_RE = re.compile(r"^(?:https?://)?([a-z0-9_.-]+\.[a-z]{2,})", re.I)
 _HOST_IN_TEXT = re.compile(r"\b((?:[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?\.)+[a-z]{2,})\b", re.I)
+_LABEL_RE = re.compile(r"^[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?$")
+
+
+def valid_hostname(host: str) -> bool:
+    """RFC-ish hostname sanity check.
+
+    Filters the garbage that archive/CDX and HTML scrapers produce, e.g.
+    concatenated SSRF-style hosts whose label runs past 63 chars
+    (`...19cloudflareusacanada....facebook.com...app.adjust.com`). Also rejects
+    bare IPs (numeric TLD) so they are not treated as subdomains.
+    """
+    host = (host or "").strip().strip(".").lower()
+    if not host or len(host) > 253 or "." not in host:
+        return False
+    labels = host.split(".")
+    # Real subdomains are shallow; concatenated CDX/SSRF garbage explodes the
+    # label count (e.g. ip+cdn+ip+host mashed into one "host" with 12+ labels).
+    if not (2 <= len(labels) <= 8):
+        return False
+    # TLD must be alphabetic (rejects IPs and junk like ".net52" fragments)
+    if not re.fullmatch(r"[a-z]{2,24}", labels[-1]):
+        return False
+    return all(_LABEL_RE.match(lab) for lab in labels)
 
 
 def slugify(name: str) -> str:
@@ -52,7 +75,9 @@ def in_scope(host: str, root: str) -> bool:
     root = (root or "").lower().strip(".")
     if not host or not root:
         return False
-    return host == root or host.endswith("." + root)
+    if not (host == root or host.endswith("." + root)):
+        return False
+    return valid_hostname(host)
 
 
 def ext_of(url: str) -> str:

@@ -110,6 +110,42 @@ class HttpClient:
         self.pool = ProxyPool(proxies if proxies is not None else SETTINGS.proxies)
         self.impersonate = impersonate or IMPERSONATE
         self._local = threading.local()
+        # adaptive: hosts that blocked the direct IP recently -> go proxy-first
+        # so we stop wasting a guaranteed-429 proxyless request on e.g.
+        # web.archive.org once it starts rate-limiting the datacenter IP.
+        self._blocked_hosts: dict[str, float] = {}
+        self._bh_lock = threading.Lock()
+        self.block_cooldown = 180.0
+
+    @staticmethod
+    def _host(url: str) -> str:
+        try:
+            from urllib.parse import urlsplit
+            return (urlsplit(url).hostname or "").lower()
+        except Exception:
+            return ""
+
+    def _is_cooling(self, host: str) -> bool:
+        if not host:
+            return False
+        with self._bh_lock:
+            ts = self._blocked_hosts.get(host)
+            if ts is None:
+                return False
+            if time.time() - ts > self.block_cooldown:
+                self._blocked_hosts.pop(host, None)
+                return False
+            return True
+
+    def _mark_block(self, host: str) -> None:
+        if host:
+            with self._bh_lock:
+                self._blocked_hosts[host] = time.time()
+
+    def _clear_block(self, host: str) -> None:
+        if host:
+            with self._bh_lock:
+                self._blocked_hosts.pop(host, None)
 
     # -- session management (thread-local) ---------------------------------
     def _session(self):
@@ -162,13 +198,19 @@ class HttpClient:
             time.sleep(delay)
 
         attempts: list[Resp] = []
+        host = self._host(url)
 
-        # 1) proxyless first (unless caller forces proxy)
-        if not force_proxy:
+        # 1) proxyless first (unless caller forces proxy, or this host recently
+        #    blocked the direct IP and we have proxies to use instead)
+        skip_proxyless = force_proxy or (bool(self.pool) and self._is_cooling(host))
+        if not skip_proxyless:
             r = self._attempt(method, url, None, allow_redirects=allow_redirects,
                               timeout=timeout, **kw)
             if not r.blocked and not r.error:
+                self._clear_block(host)
                 return r
+            if r.blocked or r.error:
+                self._mark_block(host)
             attempts.append(r)
 
         # 2) rotate through proxy pool

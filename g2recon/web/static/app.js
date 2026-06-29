@@ -313,6 +313,10 @@ function runModal(){
   const vlive=el("input",{type:"checkbox",checked:"checked"}), varch=el("input",{type:"checkbox",checked:"checked"});
   const reflUrls=el("input",{type:"number",value:400,style:"width:90px"});
   const reflParams=el("input",{type:"number",value:1024,style:"width:90px"});
+  const wbWorkers=el("input",{type:"number",value:3,style:"width:70px"});
+  const orUrls=el("input",{type:"number",value:800,style:"width:90px"});
+  const liveUrls=el("input",{type:"number",value:2000,style:"width:90px"});
+  const fuzzDirs=el("input",{type:"number",value:40,style:"width:80px"});
   const paramsFile=el("input",{type:"file"});
 
   const card=el("div",{class:"card"},
@@ -332,6 +336,11 @@ function runModal(){
       el("label",{class:"row"},varch,"download archived"),
       el("label",{class:"row"},"refl. URLs",reflUrls),
       el("label",{class:"row"},"refl. params",reflParams)),
+    el("div",{class:"row wrap",style:"gap:14px;margin-top:8px"},
+      el("label",{class:"row"},"wayback workers",wbWorkers),
+      el("label",{class:"row"},"open-redirect URLs",orUrls),
+      el("label",{class:"row"},"live-check URLs",liveUrls),
+      el("label",{class:"row"},"fuzz dirs",fuzzDirs)),
     el("div",{class:"field"},el("label",{},"Base params.txt (optional upload)"),paramsFile),
     el("div",{class:"row spread",style:"margin-top:14px"},
       el("button",{class:"btn",onclick:closeModal},"Cancel"),
@@ -348,7 +357,9 @@ function runModal(){
           wayback_from_year:+fromY.value||2020, wayback_to_year:+toY.value||0,
           wayback_batch_size:+batch.value||5000, max_recursion_depth:+depth.value||3,
           download_variants:variants, reflection_max_urls:+reflUrls.value||400,
-          reflection_max_params:+reflParams.value||1024 };
+          reflection_max_params:+reflParams.value||1024,
+          wayback_workers:+wbWorkers.value||3, openredirect_max_urls:+orUrls.value||800,
+          livecheck_max_urls:+liveUrls.value||2000, fuzz_max_dirs:+fuzzDirs.value||40 };
         try{ await api("POST",`/api/targets/${t.id}/start`,opt); toast("recon started"); closeModal();
           await loadTargets(); state.tab="logs"; renderTarget(); }
         catch(e){ toast(e.message); }

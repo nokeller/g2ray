@@ -57,7 +57,12 @@ class PipelineRunner:
         with self._lock:
             store.log(self.session, self.job_id, self.target_id, level, step, msg)
 
-    def _cursor_get(self, key): return store.cursor_get(self.session, key)
+    def _cursor_get(self, key):
+        # Worker threads call this concurrently; the shared Session is NOT
+        # thread-safe, so every access (reads included) must hold the lock.
+        with self._lock:
+            return store.cursor_get(self.session, key)
+
     def _cursor_set(self, key, val):
         with self._lock:
             store.cursor_set(self.session, key, val)
@@ -289,13 +294,15 @@ class PipelineRunner:
         if not urls:
             self.log("info", "openredirect", "no parametrised urls")
             return
+        max_urls = int(self.options.get("openredirect_max_urls", 800))
         scanner = m_or.OpenRedirectScanner(self.client)
 
         def persist(rec):
             with self._lock:
                 store.add_openredirect(self.session, self.target_id, rec)
         scanner.scan(urls, persist,
-                     lambda lvl, m: self.log(lvl, "openredirect", m), self.should_stop)
+                     lambda lvl, m: self.log(lvl, "openredirect", m), self.should_stop,
+                     max_sigs=max_urls)
         rows = self.session.execute(
             select(OpenRedirect.url, OpenRedirect.param, OpenRedirect.payload, OpenRedirect.location)
             .where(OpenRedirect.target_id == self.target_id)).all()
@@ -303,9 +310,18 @@ class PipelineRunner:
         (self.dir / f"{self.slug}_openredirect.txt").write_text("\n".join(lines) + "\n")
 
     def _step_livecheck(self):
-        targets: set[str] = set()
+        max_urls = int(self.options.get("livecheck_max_urls", 2000))
+        # priority order: host roots -> JS-discovered in-scope endpoints -> juicy
+        ordered: list[str] = []
+        seen: set[str] = set()
+
+        def add(u):
+            if u and u not in seen:
+                seen.add(u)
+                ordered.append(u)
+
         for h in self._in_scope_hosts():
-            targets.add(f"https://{h}/")
+            add(f"https://{h}/")
         # resolve js links to absolute in-scope urls
         for link, kind, src in self.session.execute(
                 select(JsLink.link, JsLink.kind, JsLink.source_file)
@@ -315,32 +331,54 @@ class PipelineRunner:
             except Exception:
                 continue
             if util.in_scope(util.host_of(absu), self.root) and absu.startswith("http"):
-                targets.add(absu.split("#")[0])
+                add(absu.split("#")[0])
         # juicy urls
         for u in self._all_urls(only_juicy=True):
-            targets.add(u)
+            add(u)
+
+        if max_urls and len(ordered) > max_urls:
+            self.log("info", "livecheck",
+                     f"{len(ordered)} candidates -> capped to {max_urls}")
+            ordered = ordered[:max_urls]
         checker = m_live.LiveChecker(self.client)
 
         def persist(rec):
             with self._lock:
                 store.add_liveresult(self.session, self.target_id, rec)
-        checker.check_many(list(targets), persist,
+        checker.check_many(ordered, persist,
                            lambda lvl, m: self.log(lvl, "livecheck", m), self.should_stop)
 
     def _step_fuzz(self):
-        base_dirs: set[str] = set()
+        # ffuf-style FUZZ.<ext> discovery, focused on directories where we
+        # actually fetched files (that is where new JS/juicy siblings live).
+        base_dirs: list[str] = []
+        seen: set[str] = set()
+
+        def add(d):
+            if d and d not in seen:
+                seen.add(d)
+                base_dirs.append(d)
+
         for (u,) in self.session.execute(
-                select(FileRecord.url).where(FileRecord.target_id == self.target_id)).all():
+                select(FileRecord.url).where(
+                    FileRecord.target_id == self.target_id,
+                    FileRecord.status_code.between(200, 399))).all():
             if util.in_scope(util.host_of(u), self.root):
-                base_dirs.add(m_fuzz.base_dir_of(u))
-        for u in self._all_urls(only_juicy=True):
-            base_dirs.add(m_fuzz.base_dir_of(u))
+                add(m_fuzz.base_dir_of(u))
+        # fallback / augment: dirs of juicy urls (bounded) if we have few
+        if len(base_dirs) < 5:
+            for u in self._all_urls(only_juicy=True)[:500]:
+                add(m_fuzz.base_dir_of(u))
+        max_dirs = int(self.options.get("fuzz_max_dirs", 40))
+        if len(base_dirs) > max_dirs:
+            self.log("info", "fuzz", f"{len(base_dirs)} dirs -> capped to {max_dirs}")
+            base_dirs = base_dirs[:max_dirs]
         wl_path = self.options.get("fuzz_wordlist_path") or str(WORDLIST_DIR / "js_words.txt")
         words = m_params.load_base(wl_path) if Path(wl_path).exists() else set()
         if not words:
             words = {"app", "main", "index", "config", "settings", "admin", "api",
                      "bundle", "vendor", "runtime", "chunk", "auth", "login", "user"}
-        fuzzer = m_fuzz.Fuzzer(self.client)
+        fuzzer = m_fuzz.Fuzzer(self.client, max_base_dirs=max_dirs)
 
         def persist(rec):
             with self._lock:

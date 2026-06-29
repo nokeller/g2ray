@@ -4,4 +4,3 @@ curl_cffi>=0.7.0
 SQLAlchemy>=2.0,<3.0
 python-multipart>=0.0.9
 pytest>=8.0
-httpx2>=2.4
