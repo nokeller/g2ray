@@ -1,0 +1,5 @@
+### [56] Opt-out IDOR on a legacy subdomain — `profile_id` increment leaks any user's email — Gavin K ($1,000) [DUP reinforcement: chase lonely/legacy endpoints; unsubscribe flows leak email]
+- Where: a "lonely" `/opt-out/` endpoint redirected to an old subdomain with `?profile_id=<ObjectId>`.
+- Approach/how-found: Burp showed nothing rendered, so he opened the odd endpoint in a browser → a legacy opt-out page; changing the last digit of `profile_id` showed a different user's email → enumerate every email + opt anyone out (interfering with their mailing/password-reset).
+- Test: chase isolated/odd endpoints (opt-out, unsubscribe, preferences, legacy subdomains) — they're often old code with `profile_id`/`uid` IDORs that leak email and toggle others' notification/reset settings. Open endpoints in a browser when Burp shows a blank render.
+- Q: "Do unsubscribe/opt-out/preference endpoints (especially on legacy subdomains) take a `profile_id`/`uid` I can change to read another user's email or alter their settings?"

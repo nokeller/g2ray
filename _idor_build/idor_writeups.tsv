@@ -1,0 +1,467 @@
+2024-09-04	-	Zomatoooo! IDOR in Saved Payments	https://prateeksrivastavaa.medium.com/zomatoooo-idor-in-saved-payments-f8c014879741
+2024-08-10	13,500	How I got my first $13500 bounty through Parameter Polluting (HPP)	https://infosecwriteups.com/how-i-got-my-first-13500-bounty-through-parameter-polluting-hpp-179666b8e8bb
+2024-08-07	-	The Butterfly Effect: Turning Overlooked - Misconfigurations into Zero Click Account Takeover	https://oussamarahali.com/blog/butterfly-effect-zero-click-account-takeover/
+2024-07-29	-	A Creative Way To Get Someones YouTube Videos Deleted + A Copyright Strike Against Their YouTube Channel	https://secreltyhiddenwriteups.blogspot.com/2024/07/a-creative-way-to-get-someones-youtube.html
+2024-07-09	-	Bypassing ACLs – IDOR exploitation via HPP	https://fortbridge.co.uk/research/idor-exploitation-via-hpp-api-hacking-case-study/
+2024-06-19	2,500	IDOR on HackerOne Embedded Submission Form	https://medium.com/pinoywhitehat/idor-on-hackerone-embedded-submission-form-9e59c6f044b3
+2024-04-28	-	How I was able to discover ATO Via IDOR vulnerability	https://medium.com/@0x_xnum/idor-leads-to-account-takeover-of-all-users-ato-27af312c8481
+2024-04-17	-	Taking over accounts in multiple ways	https://vict0ni.me/taking-over-accounts-in-multiple-ways/
+2024-04-12	-	Using E-Notation to bypass Access Control restrictions to access arbitrary user PII-discussions	https://medium.com/@keizobugbounty/using-e-notation-to-bypass-access-control-restrictions-to-access-arbitrary-user-pii-discussions-1fa014b544d4
+2024-03-20	2,000	Bypassing an IDOR A couple of times — $$$$	https://medium.com/@bxrowski0x/bypassing-an-idor-a-couple-of-times-4d67555a1545
+2024-03-04	20,300	$20,300 Bounties from a 200 Hour Hacking Challenge	https://blog.voorivex.team/20300-bounties-from-a-200-hour-hacking-challenge
+2024-03-04	50,000	We Hacked Google A.I. for $50,000	https://www.landh.tech/blog/20240304-google-hack-50000/
+2024-02-15	-	Account Takeover [It Looked Secure at First]	https://cristivlad.medium.com/account-takeover-it-looked-secure-at-first-f14a31cb7f5c
+2024-01-30	-	Bypass Admin approval, Mute Member and Posting Permissions for Only admins in Facebook groups	https://blog.flawminers.com/index.php/2024/01/30/bypass-admin-approval-mute-member-and-posting-permissions-for-only-admins-in-facebook-groups/
+2024-01-30	-	Disclose private mockups for other users in facebook Creative Hub	https://blog.flawminers.com/index.php/2024/01/30/disclose-private-mockups-for-other-users-in-facebook-creative-hub/
+2024-01-30	-	Persistent Distorted Posts Issue and Unremovable Content in Facebook Group	https://blog.flawminers.com/index.php/2024/01/30/persistent-distorted-posts-issue-and-unremovable-content-in-facebook-group/
+2024-01-30	-	Add comment on a private Oculus Developer support	https://blog.flawminers.com/index.php/2024/01/30/add-comment-on-a-private-oculus-developer-support/
+2024-01-30	-	Disclose latest stream video asset earnings for any gaming streamer page	https://blog.flawminers.com/index.php/2024/01/30/disclose-latest-stream-video-asset-earnings-for-any-gaming-streamer-page/
+2024-01-30	-	Send messages through notification to facebook & workplace users without getting blocked	https://blog.flawminers.com/index.php/2024/01/30/send-messages-through-notification-to-facebook-workplace-users-without-getting-blocked/
+2024-01-30	-	Break saved option for other users in facebook – From N/A to valid bug	https://blog.flawminers.com/index.php/2024/01/30/break-saved-option-for-other-users-in-facebook-from-n-a-to-valid-bug/
+2024-01-30	-	Sign up for Brand Collabs Manager on behalf of other page admins – Privilege Escalation	https://blog.flawminers.com/index.php/2024/01/30/sign-up-for-brand-collabs-manager-on-behalf-of-other-page-admins-privilege-escalation/
+2024-01-26	-	Chaining IDOR and Host Header can takeover 18 Billion of users account	https://nullr3x.medium.com/chaining-idor-and-host-header-can-takeover-18-billion-of-users-account-3f0c3fdbc29b
+2024-01-17	-	How I was able to delete any image in Facebook community question forum	https://blog.flawminers.com/index.php/2024/01/17/how-i-was-able-to-delete-any-image-in-facebook-community-question-forum-1500/
+2024-01-17	-	Unauthorized Disclosure of Video Thumbnails in Facebook Workplace	https://blog.flawminers.com/index.php/2024/01/17/unauthorized-disclosure-of-video-thumbnails-in-facebook-workplace-3000/
+2024-01-17	200	How to Discover IDOR from a Blank Page — Bug Bounty Tuesday	https://medium.com/@kerstan/how-to-discovered-idor-from-a-blank-page-bug-bounty-tuesday-5af784533d1a
+2024-01-16	-	Adding Descriptions to Instagram Posts on Behalf of Other Users	https://blog.flawminers.com/index.php/2024/01/16/adding-descriptions-to-instagram-posts-on-behalf-of-other-users-6500/
+2024-01-15	-	Disclose private attachments in Facebook Messenger Infrastructure	https://blog.flawminers.com/index.php/2024/01/15/disclose-private-attachments-in-facebook-messenger-infrastructure-15000/
+2024-01-05	15,000	How I Prevented a Mass Data Breach - $15,000 bounty - @bxmbn	https://bxmbn.medium.com/how-i-prevented-a-mass-data-breach-15-000-bounty-bxmbn-1096e6400e3d
+2024-01-05	5,000	I received a Bank offer in my mailbox and discovered an IDOR vulnerability - $5,000 bounty - @bxmbn	https://bxmbn.medium.com/i-received-a-bank-offer-in-my-mailbox-and-discovered-an-idor-vulnerability-5-000-bounty-bxmbn-5209cab1fba8
+2024-01-03	-	Genie Aladdin Connect Retrofit Garage Door Opener: Multiple Vulnerabilities	https://www.rapid7.com/blog/post/2024/01/03/genie-aladdin-connect-retrofit-garage-door-opener-multiple-vulnerabilities/
+2024-01-02	-	Technical Advisory – Multiple Vulnerabilities in PandoraFMS Enterprise	https://research.nccgroup.com/2024/01/02/technical-advisory-multiple-vulnerabilities-in-pandorafms-enterprise/
+2023-12-19	300	How One Bug Scored Me Double Rewards!	https://anasbetis023.medium.com/how-one-bug-scored-me-double-rewards-355b8d02cdbf
+2023-11-01	7,000	$7000 Bounty on a Single Web Application	https://blog.voorivex.team/7000-bounty-on-a-single-web-application
+2023-08-31	10,000	How I could view any Facebook Groups Notes media, and they paid me a $10,000	https://medium.com/@rajasudhakar/how-i-could-view-any-facebook-groups-notes-media-and-they-paid-me-a-10-000-fe22f8949d7c
+2023-08-25	-	RCE via Account Takeover	https://medium.com/vault-infosec/rce-via-account-takeover-a6fea7390385
+2023-08-19	2,500	An IDOR lead joins any group makes me $2,500	https://infosecwriteups.com/an-idor-leads-join-any-group-makes-me-2-500-406eb9e463a3
+2023-08-18	2,500	(IDOR) How do I find the first vulnerability with a $2500 bounty on hackerone.	https://medium.com/@muhammadiman2468/idor-how-do-i-find-the-first-vulnerability-with-a-2500-bounty-on-hackerone-7afb3d8b5739
+2023-08-13	400	[IDOR] $400 — Deleting Other Project in Shopee	https://aryasec.medium.com/idor-400-deleting-other-project-in-shopee-657239913416
+2023-08-04	-	Using Browser Tools For Bug Hunting: An Interesting 0$ Write IDOR On Instagram	https://faizanwrites.medium.com/using-browser-tools-for-bug-hunting-an-interesting-0-write-idor-on-instagram-7d5318299c1a
+2023-07-28	-	How I found two api vulnerabilities by analyzing JS source code	https://medium.com/@mohammed0x04/how-i-found-two-api-vulnerabilities-using-website-source-code-6c4b0dc54d6f
+2023-07-12	-	Major Security Flaws in Popular QuickBlox Chat And Video Framework Expose Sensitive Data Of Millions	https://claroty.com/team82/research/major-security-flaws-in-popular-quickblox-chat-and-video-framework-expose-sensitive-data-of-millions
+2023-07-10	-	Account (of the CEO) Takeover via Password Reset	https://cristivlad.medium.com/account-of-the-ceo-takeover-via-password-reset-7e55c0175425
+2023-07-01	-	Multiple vulnerabilities on Chamilo 1.11.18	https://www.randorisec.fr/chamilo-1.11.18-multiple-vulnerabilities
+2023-06-30	-	Multiple Vulnerabilities In Cockpit CMS <= V2.5.2	https://www.ghostccamm.com/blog/multi_cockpit_vulns/
+2023-06-27	-	How BAC(Broken Access Control) got me a Pre Account Takeover	https://bharat-singh.medium.com/how-bac-broken-access-control-got-me-a-pre-account-takeover-2481931b7b3a
+2023-06-26	-	Account Takeover: Unraveling IDOR + Stored XSS Flaws in an NFT Marketplace	https://medium.com/@pratiky054/account-takeover-unraveling-idor-stored-xss-flaws-in-an-nft-marketplace-158679660fa7
+2023-06-23	-	GraphQL API Hacking!	https://medium.com/@mahmud0x/graphql-api-hacking-7cf6cd46ce4f
+2023-06-21	-	Advisory: IDOR in Microsoft Teams Allows for External Tenants to Introduce Malware	https://labs.jumpsec.com/advisory-idor-in-microsoft-teams-allows-for-external-tenants-to-introduce-malware/
+2023-06-19	2,500	The Unexpected “0” Master ID for Account Data Manipulation	http://www.firstsight.me/2023/06/the-unexpected-0-master-id-for-account-data-manipulation/
+2023-06-14	1,500	PII Data Leakage and US$1500 Bounty	https://medium.com/@ferferof/pii-data-leakage-and-us-1500-bounty-af676350fb76
+2023-06-13	-	IDOR, unpin posts for fun.	https://medium.com/@omarahmed_13016/idor-unpin-posts-for-fun-18f628eaef24
+2023-06-12	-	Taking Over an Entire Organization - A Journey Through Multiple Bugs	https://hacktus.tech/taking-over-an-entire-organization
+2023-06-06	-	How I was able to get account takeover via IDOR form JWT	https://medium.com/@M0X0101/how-i-was-able-to-get-account-takeover-via-idor-form-jwt-caaf7ea58aa
+2023-06-01	-	Critical vulnerability on TP-Link service or how I got 0$	https://infosecwriteups.com/critical-finding-on-tp-link-service-or-how-i-got-0-fc86a0e52eaf
+2023-05-23	-	From Response To Request, Adding Your Own Variables Inside Of GraphQL Queries For Account Take Over	https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/from-response-to-request-adding-your-own-variables-inside-of-graphql-queries-for-account-take-over/
+2023-05-12	1,000	One Bug at a Time: I failed my quiz on purpose to get $1,000!	https://medium.com/@atomiczsec/one-bug-at-a-time-my-first-paid-bug-1-000-idor-4b89b63b2b4b
+2023-04-18	10,000	[Responsible Disclosure] How we could have deleted any Linkedin post	https://www.pingsafe.com/blog/linkedin-vulnerability-delete-any-post
+2023-04-14	-	From Django Debug Mode to PII Data Leak of more than 500+ Employees due Broken Access Control and IDOR	https://medium.com/@ar_hawk/from-django-debug-mode-to-pii-data-leak-of-more-than-500-employees-due-broken-access-control-and-a3eb602a4207
+2023-04-06	-	Let me Unmask my next 👻	https://crypt0g30rgy.github.io/post/TinderBug
+2023-03-20	-	Credit card statement disclosure vulnerability in Viseca's eXpense portal	https://www.pentagrid.ch/de/blog/viseca-expense-credit-card-statement-disclosure/
+2023-03-17	-	How I chained multiple High-impact vulnerabilities to create a critical one.	https://princej-76.medium.com/how-i-chained-multiple-high-impact-vulnearbilities-to-create-a-critical-one-476950a3bb9f
+2023-03-14	-	CVE-2023–24625 / IDOR in Faveo Service Desk	https://cupc4k3.lol/cve-2023-24625-idor-in-faveo-service-desk-37a63f53d896
+2023-03-08	-	Self XSS To Stored Through IDOR/	https://arben.sh/bugbounty/SelfXSS-To-Stored-Through-IDOR/
+2023-03-06	-	Accessing to Data Sources of any Facebook Business account via IDOR in GraphQL	https://medium.com/@mukundbhuva/accessing-the-data-sources-of-any-facebook-business-account-via-idor-in-graphql-1fc963ad3ecd
+2023-03-05	-	IDOR on bitdefender.com	https://hopesamples.blogspot.com/2023/03/idor-on-bitdefendercom.html
+2023-03-04	-	JS file enumeration for bug bounty hunters	https://screamy7.github.io/posts/Javascript/
+2023-03-01	-	How a simple IDOR impacted the data of thousands of customers of an Indian automotive giant	https://medium.com/@kushjain0107/how-simple-idor-impacted-the-data-of-thousands-of-customers-of-an-indian-automotive-giant-fdbd2ef1c2c6
+2023-02-25	-	My P1 — Account Takeover	https://medium.com/@metikalakullai.gtl/my-p1-account-takeover-3293fc59e10
+2023-02-22	700	Insufficient GraphQL API vulnerability due to lack of validation of Authorization Bearer token	https://0x1int.gitbook.io/blogs/insufficient-graphql-api-vulnerability-due-to-lack-of-validation-of-authorization-bearer-token
+2023-02-20	-	Exposing 185M+ Indians’ Personal Information and much more	https://blog.robinjust.in/gov-in/2023/02/Exposing-Indian-Citizens-Sensitive-PII-and-more/
+2023-02-18	-	Found an URL in the android application source code which lead to an IDOR	https://vengeance.medium.com/found-an-url-in-the-android-application-source-code-which-lead-to-an-idor-1b8768708756
+2023-02-12	-	IDOR Leads to MASS Account Takeover	https://yaseenzubair.medium.com/idor-leads-to-mass-account-takeover-7548a03f5672
+2023-02-03	-	Play with Google, Twitter, Apple, Dell	https://medium.com/@rezaduty/play-with-google-twitter-apple-dell-a90777faa779
+2023-02-02	-	IDOR - Inside the Session Storage	https://shahjerry33.medium.com/idor-inside-the-session-storage-88af485fc899
+2023-02-01	500	An IDOR vulnerability often hides many others	https://infosecwriteups.com/an-idor-vulnerability-often-hides-many-others-2893ddd0a0d7
+2023-01-31	-	Mass Account takeover by bypassing 2 FA	https://z-sec.co/mass-account-takeover
+2023-01-29	5,500	How I Found an Insecure Direct Object Reference in TikTok	https://medium.com/@mrhavit/how-i-found-an-insecure-direct-object-reference-in-tiktok-c7303addf223
+2023-01-29	900	Discovered a Critical IDOR and Earned $900 for My First P1 Vulnerability!	https://medium.com/@abhisekr/discovered-a-critical-idor-and-earned-900-for-my-first-p1-vulnerability-57c1e72f42c1
+2023-01-29	-	The 100+ Million Person Data Disclosure	https://www.jhaddix.com/post/the-100-million-person-data-disclosure
+2023-01-20	-	Bypassing E2E encryption leads to multiple high vulnerabilities.	https://melotover.medium.com/bypassing-e2e-encryption-leads-to-multiple-high-vulnerabilities-65b708e5ad84
+2023-01-09	-	“2022: A Year of Fascinating Discoveries”	https://dhakalbibek.medium.com/2022-a-year-of-fascinating-discoveries-d3277dfb006f
+2023-01-09	1,726	Meta Quest: Attacker could make any Oculus user to follow (subscribe) him without any approval	https://www.vulnano.com/2023/01/meta-quest-attacker-could-make-any.html
+2022-12-21	11,250	Delete any Video or Reel on Facebook (11,250$)	https://bugreader.com/social/write-ups-general-delete-any-video-or-reel-on-facebook-11-250--100965
+2022-12-21	-	Zero Click To Account Takeover (IDOR + XSS)	https://m7arm4n.medium.com/zero-click-to-account-takeover-idor-xss-98dd6cce63c4
+2022-12-20	1,500	[GraphQL IDOR]Leaking credit card information of 1000s of users	https://infosecwriteups.com/graphql-idor-leaking-credit-card-information-of-1000s-of-users-d07eec732979
+2022-12-14	-	Unprotected API endpoint at HAwebsso.nl leads to data leak of +15k medical doctor usernames & password hashes	https://medium.com/@jonathanbouman/unprotected-api-endpoint-at-hawebsso-nl-5f1951e212fe
+2022-12-12	-	How I became a millionaire in 3h | Fintech Bug Bounty — Part 1	https://0x4kd.medium.com/how-i-became-a-millionaire-in-3h-fintech-bug-bounty-part-1-90193c5bd86f
+2022-12-11	-	IDOR allows to assign deleted tasks to other members in Google Chat Space	https://hopesamples.blogspot.com/2022/12/idor-allows-to-assign-deleted-tasks-to.html
+2022-12-10	-	Scoring $$$ for a very simple bug : You don’t always need proxy tools	https://medium.com/@mrd17x/scoring-for-a-very-simple-bug-you-dont-always-need-proxy-tools-872a832f83ea
+2022-12-05	350	[BAC/IDOR] How my father credit card help me to find this access control issue	https://xcoder074.medium.com/bac-idor-how-my-father-credit-card-help-me-to-find-this-access-control-issue-7ff7c1ae463e
+2022-12-03	-	3 Step IDOR in HackerResume	https://medium.com/@swapmaurya20/3-step-idor-in-hackerresume-a365f2632996
+2022-12-02	-	Hacking on a plane: Leaking data of millions and taking over any account	http://rez0.blog/hacking/2022/12/02/hacking-on-a-plane.html
+2022-11-30	-	The space creators can still see the members of the space, even after they have been removed from the space.	https://hopesamples.blogspot.com/2022/11/the-space-creators-can-still-see.html
+2022-11-26	-	Automating Unsolicited Richard Pics; Pwning 60,000 Digital Picture Frames	https://www.scrawledsecurityblog.com/2022/11/automating-unsolicited-richard-pics.html
+2022-11-26	-	[Hacking Bank] The Second Story of Finding Critical Vulnerabilities on Banking Application	https://medium.com/@protostar0/hacking-bank-the-second-story-of-finding-critical-vulnerabilities-on-banking-application-ac20cd8f3dad
+2022-11-26	8,000	A great weekend hack(worth $8k)	https://infosecwriteups.com/a-great-weekend-hack-worth-8k-9bfda8ab65b9
+2022-11-26	-	How I hacked into a government e-learning website	https://iamgk808.medium.com/how-i-hacked-into-a-government-e-learning-website-ce8da8fb4ccc
+2022-11-25	1,000	Able to Mass-change profile section leads to my first $BOUNTY$	https://hacklido.com/d/93-able-to-mass-change-profile-section-leads-to-my-first-bounty
+2022-11-16	2,500	Account Takeover Worth of $2500	https://gonzxph.medium.com/account-takeover-worth-of-2500-e643661f94e9
+2022-11-16	-	The Story Of A Strange / Stored IDOR.	https://medium.com/@hf6452/a-story-of-a-strange-stored-idor-b6f2769bb6cb
+2022-11-10	-	Google VRP (Acquisitions) — [Insecure Direct Object Reference] 2nd	https://caesarevan23.medium.com/google-vrp-acquisitions-insecure-direct-object-reference-2nd-2ece9b185ade
+2022-11-08	-	Some Tips to Finding IDORs more easily and Fixing them	https://medium.com/@nxenon/some-tips-to-finding-idors-more-easily-and-fixing-them-2c9d0c58bb4a
+2022-11-06	200	IDOR on Unsubscribe emails to $200 bounty.	https://medium.com/@shellyshubh/idor-on-unsubscribe-emails-to-200-bounty-ae16fb783b01
+2022-10-21	-	$1,000+ P1: PII Disclosure W/ IDOR	https://medium.com/the-gray-area/1-000-p1-pii-disclosure-w-idor-cb344c55d52e
+2022-10-20	3,133.70	Google VRP — [Insecure Direct Object Reference] $3133.70	https://caesarevan23.medium.com/google-vrp-insecure-direct-object-reference-3133-70-a0e37023a4c7
+2022-10-13	-	Fall account takeover via Amazon Cognito misconfiguration	https://medium.com/@iknowhatodo/fall-account-takeover-via-amazon-cognito-misconfiguration-ba5975b06c24
+2022-10-12	-	Critical IDOR Vulnerability on Medium?	https://infosecwriteups.com/critical-idor-vulnerability-on-medium-f78346edbcb1
+2022-10-11	-	In GUID We Trust	https://www.intruder.io/research/in-guid-we-trust
+2022-10-07	-	Insecure Comments	https://mearegtu.medium.com/insecure-comments-73399193f804
+2022-10-02	1,500	How I found an IDOR Worth $1500	https://adilnbabras.medium.com/how-i-found-an-idor-worth-1500-d5f78bc22a7e
+2022-09-20	7,500	7,500$ – IDOR on Apple [consultants.apple.com]	https://apapedulimu.click/idor-on-apple/
+2022-09-20	3,000	Tag Myself in Your Favorite TikTok Artist Video [IDOR]	https://apapedulimu.click/tag-myself-in-your-favorite-tiktok-artist-video-idor/
+2022-09-06	3,133.70	IDOR leads to removing members from any Google Chat Space.	https://hopesamples.blogspot.com/2022/09/idor-leads-to-removing-members-from-any.html
+2022-09-06	-	Group expert's pending expertise request leaking on Facebook	https://hopesamples.blogspot.com/2022/09/group-experts-pending-expertise-request.html
+2022-09-06	-	Details about future collaboration profiles and pages have been revealed	https://hopesamples.blogspot.com/2022/09/details-about-future-collaboration.html
+2022-09-05	-	IDOR “Insecure direct object references”, my first P1 in Bugbounty	https://medium.com/@jedus0r/idor-insecure-direct-object-references-my-first-p1-in-bugbounty-fb01f50e25df
+2022-09-04	3,200	How I found my first SSRF to RCE!	https://medium.com/@0x0Asif/how-i-found-my-first-rce-8f8033883dc4
+2022-09-02	-	Viewing Instagram live streams anonymously without notifying the host	https://feed.bugs.xdavidhu.me/bugs/0015
+2022-08-30	-	IDOR at Login function leads to leak user’s PII data	https://eslam3kl.medium.com/idor-at-login-function-leads-to-leak-users-pii-data-d77e6613e9e0
+2022-08-28	200	Unsubscribe any user’s e-mail notifications via IDOR	https://sagarsajeev.medium.com/unsubscribe-any-users-e-mail-notifications-via-idor-2c2e05b79dac
+2022-08-27	-	The Million Dollar IDOR	https://monish-basaniwal.medium.com/the-million-dollar-hack-8163892bfe2f
+2022-08-26	1,500	Break the Logic: 5 Different Perspectives in Single Page (€1500)	https://infosecwriteups.com/break-the-logic-5-different-perspectives-in-single-page-1500-5aa09da0fe7a
+2022-08-23	-	Oracle SBC: Multiple Security Vulnerabilities Leading to Unauthorized Access and Denial of Service	https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/oracle-sbc-multiple-security-vulnerabilities-leading-to-unauthorized-access-and-denial-of-service/
+2022-08-15	2,000	Business Logic Vulnerability via IDOR	https://sagarsajeev.medium.com/business-logic-vulnerability-via-idor-6d510f1caea9
+2022-08-13	-	Bypassing unexpected IDOR	https://medium.com/@bharatsingh070601/bypassing-unexpected-idor-e6a9da2e0498
+2022-08-02	1,500	Multiple bugs in one program leads to 1500€	https://canmustdie.medium.com/multiple-bugs-in-one-program-leads-to-1500-c35fcde06bc7
+2022-07-26	100	Publicly Accessible Android Crash Reports Containing Sensitive Information	https://medium.com/@xpertwhitehat/publicly-accessible-android-crash-reports-containing-sensitive-information-ec1220079f31
+2022-07-25	2,114	Digging JS files to find BUGs	https://adnanmalik.info/blog/digging-js-files-to-find-bugs/
+2022-07-24	1,125	A Developer’s Nightmare: Story of a simple IDOR and some poor fixes worth $1125	https://medium.com/@720922/a-developers-nightmare-story-of-a-simple-idor-and-some-poor-fixes-worth-1125-5ead70b0a1de
+2022-07-22	-	I mean, IDOR is NOT only about others ID	https://infosecwriteups.com/i-mean-idor-is-not-only-about-others-id-2d26115072ba
+2022-07-18	-	Hey Google Lets submit bug from Victim Account !	https://virtuvil.medium.com/hey-google-lets-submit-bug-from-victim-account-af6a25d390e1
+2022-07-15	-	Exploiting Arbitrary Object Instantiations in PHP without Custom Classes	https://medium.com/@evilmango/this-is-what-i-call-mass-idor-20e6ec146c0e
+2022-07-14	3,000	Abusing URL Shortners for fun and profit	https://infosecwriteups.com/abusing-url-shortners-for-fun-and-profit-c83c67713916
+2022-07-12	-	How a Simple IDOR Led Me to Delete Any Account	https://payatu.com/blog/rajesh.r/idor-to-account-deletion
+2022-07-09	-	An interesting idor that allowed me to See all projects ($$$$ Bounty)	https://hamzadzworm.medium.com/an-interesting-idor-that-allowed-me-to-see-all-projects-bounty-8cd74b5edf72
+2022-07-07	10,000	PII Disclosure of Apple Users ($10k)	https://ahmdhalabi.medium.com/pii-disclosure-of-apple-users-10k-d1e3d29bae36
+2022-07-06	-	Exposing Millions of Voter ID card users’ details.	https://infosecwriteups.com/exposing-millions-of-voter-id-card-users-details-8a993c9a5d35
+2022-07-04	-	We Hacked Larksuite For 1 month and Here is what we found	https://web.archive.org/web/20220716152713/https://snapsec.co/blog/hacking-larksuite/
+2022-06-29	-	My First Apple Bug And My First Writeup	https://medium.com/@aravindb26/my-first-apple-bug-and-my-first-writeup-8a833e8e953c
+2022-06-28	2,000	Access control worth $2000 (everyone missed this IDOR+Access control between two admins.)	https://medium.com/pentesternepal/access-control-worth-2000-everyone-missed-this-idor-access-control-between-two-admins-9745eaf15d21
+2022-06-22	-	Exploiting vulnerabilities in iOS Application	https://lonewolf-raj.medium.com/exploiting-vulnerabilities-in-ios-application-cf5718910c47
+2022-06-18	-	How I hacked one of the biggest Airline in the world	https://medium.com/@sazouki/how-i-hacked-one-of-the-biggest-airline-in-the-world-e7810dc43791
+2022-06-12	49,500	How I found a Critical Bug in Instagram and Got 49500$ Bounty From Facebook	https://infosecwriteups.com/how-i-found-a-critical-bug-in-instagram-and-got-49500-bounty-from-facebook-626ff2c6a853
+2022-06-08	-	Account Takeover by Chaining Two IDORs	https://www.r29k.com/articles/bb/account-takeover-via-idors
+2022-05-23	-	How I Get Bounty From Takeover Account	https://medium.com/@ryuukhagetsu/how-i-get-bounty-from-takeover-account-ed17cd838b2a
+2022-05-21	-	PayPal IDOR via billing Agreement Token (closed Informative, payment fraud)	https://medium.com/@h4x0r_dz/paypal-idor-via-billing-agreement-token-closed-informative-payment-fraud-3245202fab38
+2022-05-19	-	How I was able to access IBM internal documents	https://medium.com/@mohamedtaha_42562/how-i-was-able-to-access-ibm-internal-documents-a33858387d30
+2022-05-18	2,500	A Tale of Confusing IDOR	https://quip.com/Uks4AzL33oAu
+2022-05-12	-	Takeover seller accounts worth billions & millions	https://web.archive.org/web/20220513145411/https://pwnsec.ninja/2022/05/12/takeover-seller-accounts-worth-billions-millions/
+2022-05-08	-	How I Paid For My Holiday With Bug Bounty	https://web.archive.org/web/20220516024454/https://medium.com/@tobydavenn/how-i-paid-for-my-holiday-with-bug-bounty-668f1f59e6e5
+2022-05-08	-	P1 Bug — PII information disclosure	https://medium.com/@huntersherlock11/p1-bug-pii-information-disclosure-7669ebbb91a8
+2022-04-12	-	IDOR (Insecure Direct Object Reference) leads to listing all valid Users and edit their Profiles	https://medium.com/@Bishoo97x/idor-insecure-direct-object-reference-leads-to-listing-all-valid-users-and-edit-their-profiles-2d7bcba78890
+2022-04-10	-	The #100DaysOfHacking Challenge : A Game Changer for Me	https://njmulsqb.engineer/2022/04/10/the-100daysofhacking-challenge.html
+2022-04-07	1,000	Multiple vulnerability leading to account takeover in TikTok SMB subdomain.	https://ahmadaabdulla.medium.com/vulnerabilitymultiple-vulnerability-leading-to-account-takeover-in-tiktok-smb-subdomain-c99e4a50b377
+2022-04-05	-	How I hacked one of the biggest airlines group of the world	https://tarekbouali.com/posts/how-i-hacked-one-of-the-biggest-airlines-group-of-the-world/
+2022-04-05	-	CloudKit Share Records leak the title of private iCloud files	https://feed.bugs.xdavidhu.me/bugs/0014
+2022-03-26	-	Deleting account via support ticket	https://web.archive.org/web/20220405093345/https://pwnsec.ninja/2022/03/26/deleting-account-via-support-ticket/
+2022-03-25	104	Broken Access Control - IDOR	https://machevalia.blog/blog/broken-access-control-idor
+2022-03-23	-	How I Was Able To TakeOver Any Account On One Of Europe's Largest Media Companies	https://medium.com/@tobydavenn/how-i-was-able-to-takeover-any-account-on-one-of-europes-largest-media-companies-e8d25e59c08
+2022-03-22	9,500	Story about more than 3.5 million PII leakage in Yahoo!!!	https://dhakalbibek.medium.com/story-about-more-than-3-5-million-pii-leakage-in-yahoo-3a530210dcc6
+2022-03-21	-	($$$) Broken Authentication and IDOR at [REDACTED]	https://wahaz.medium.com/broken-authentication-and-idor-at-redacted-646de8d508e6
+2022-03-19	-	Adobe bug bounty using IDOR, Confidential data leaks	https://debprasadbanerjee502.medium.com/adobe-bug-bounty-using-idor-confidential-data-leaks-f6c55e5143d0
+2022-03-18	-	Insecure Direct Object Reference Exposes all users of Microsoft Azure Independent Software Vendors	https://mearegtu.medium.com/insecure-direct-object-reference-exposes-all-users-of-microsoft-azure-independent-software-vendors-bed3b45e509
+2022-03-12	500	I can see the dislikes count even though is hidden by YouTube | YouTube ($500)	https://bloggerrando.blogspot.com/2022/03/13-1.html
+2022-03-10	-	How I was able to read any users confidential reports on a public level domain	https://medium.com/@tobydavenn/how-i-was-able-to-read-any-users-confidential-reports-on-a-public-level-domain-1e563857b0b9
+2022-03-02	4,300	4300$ Instagram IDOR Bug (2022)	https://medium.com/@nvmeeet/4300-instagram-idor-bug-2022-5386cf492cad
+2022-03-02	1,500	IDOR in support.mozilla.org through Code Review	https://noob3xploiter.medium.com/idor-in-support-mozilla-org-through-code-review-ff2aa8ea1201
+2022-02-15	7,500	Trim private live videos and access them (Meta bug bounty)	https://medium.com/@yaala/trim-private-live-videos-and-access-them-a331447cc82a
+2022-02-09	1,200	Story of critical security flaws I found in Glints	https://tech-blog.cymetrics.io/en/posts/huli/how-i-hacked-glints-and-your-resume-en/
+2022-02-08	-	Full Account takeover (ATO) — a tale of two bugs 🐛	https://medium.com/@kojodaprogrammer/full-account-takeover-ato-a-tale-of-two-bugs-d1b3765ff1de
+2022-02-07	-	What I Found on Sony Vulnerability Disclosure Program	https://www.cyberick.com/post/what-i-found-on-sony-vulnerability-disclosure-program
+2022-02-02	3,000	My first bounty, IDOR + Self XSS [€3000]	https://medium.com/@ladecruze/my-first-bounty-idor-self-xss-3000-cde89cbbc1b1
+2022-02-01	-	IDOR vulnerability on invoice and weak password reset leads to account take over	https://medium.com/@damaidec/idor-vulnerability-on-invoice-and-weak-password-reset-leads-to-account-take-over-603b42143a8c
+2022-01-13	800	XSS Filter Evasion + IDOR	https://systemweakness.com/xss-filter-evasion-idor-3d4624758ff0
+2022-01-06	1,050	How I was able to spoof any Instagram username on Instagram shop	https://medium.com/@nvmeeet/how-i-was-able-to-spoof-any-instagram-username-on-instagram-shop-b4d6abdb474a
+2022-01-04	-	thisclosed_#1 - Full Account Takeover of ANY user via Insecure Direct Object Reference (IDOR) on reset password functionality	https://blog.hckrt.com/blog/thisclosed_1/
+2022-01-03	-	IDOR leads to leak Private Details	https://infosecwriteups.com/idor-leads-to-leak-private-details-866563365490
+2022-01-01	-	A tale of zero click account takeover	https://medium.com/pentesternepal/a-tale-of-zero-click-account-takeover-56b51fdbd7ae
+2021-12-31	3,200	Bug Hunting Journey of 2021	https://infosecwriteups.com/bug-hunting-journey-of-2021-1fa60b28d949
+2021-12-29	863	[IDOR] add or remove the linked publications from Author Publisher settings — Facebook Bug Bounty	https://servicenger.com/mobile/idor-add-or-remove-the-linked-publications-from-author-publisher-settings-facebook-bug-bounty/
+2021-12-25	-	Massive Users Account Takeovers(Chaining Vulnerabilities to IDOR)😲	https://infosecwriteups.com/massive-users-account-takeovers-chaining-vulnerabilities-to-idor-ea4e1b6407d2
+2021-12-20	4,500	How I was able to reveal page admin of almost any page on Facebook	https://medium.com/pentesternepal/how-i-was-able-to-reveal-page-admin-of-almost-any-page-on-facebook-5a8d68253e0c
+2021-12-16	-	Broken Access Control	https://mearegtu.medium.com/broken-access-control-cc6cfd793b15
+2021-12-15	-	Gumtree – leaking your data and not really listening	https://www.pentestpartners.com/security-blog/gumtree-leaking-your-data-and-not-really-listening/
+2021-12-07	3,000	How I was able to change Reddit acquired Dubsmash’s music library sound tracks.	https://web.archive.org/web/20240304202752/https://appsecure.security/how-i-was-able-to-change-reddit-acquired-dubsmashs-music-library-sound-tracks/
+2021-12-05	-	Accidental IDOR in eLearnSecurity to Knowing Your Address and Cert You Bought.	https://www.p1boom.com/2021/12/accidental-idor-in-elearnsecurity-to.html
+2021-12-04	-	This is how i was able to See and Delete your Private Facebook Portal photos	https://pathleax.medium.com/this-is-how-i-was-able-to-see-and-delete-your-private-facebook-portal-photos-a93ed22f875b
+2021-11-12	300	Privilege Escalation, worth of €300	https://medium.com/@kashyapherry147/privilege-escalation-worth-of-300-b9a6eac3b0fa
+2021-11-12	-	chaining improper authentication to idor and no rate limit for mass account takeover	https://tox7cv3nom.github.io/2021/11/12/chaining-of-csrf-token-misconfiguration-and-no-rate-limit-leads-to-mass-account-takeover.html
+2021-11-12	1,300	From URL dumps digging to IDOR , BAC, Massive Phishing in Udemy	https://hector0x.medium.com/from-url-dumps-digging-to-idor-bac-massive-phishing-in-udemy-6fa7f94ef256
+2021-11-09	-	Becoming A Super Admin In Someone Elses Gsuite Organization And Taking It Over	https://secreltyhiddenwriteups.blogspot.com/2021/11/becoming-super-admin-in-someone-elses.html
+2021-11-06	-	4 Crits in 48 hours: Unicorn Programs	https://web.archive.org/web/20211106100048/https://monke.ie/unicorn-programs/
+2021-11-04	-	HacktoberFest2k21 vulnerability: How users metadata can be changed via Auth JWT tokens leaking from waybackurls	https://medium.com/@varmaanu001/hacktoberfest2k21-vulnerability-how-users-metadata-can-be-changed-via-auth-jwt-tokens-leaking-from-3028f8ad6991
+2021-10-31	-	Never Give Up — Story of Hacking Dutch Government and Earning that Dutch Swag.	https://medium.com/@bababounty99/never-give-up-story-of-hacking-dutch-government-and-earning-that-swag-b518cca81c78
+2021-10-28	-	Unauthorized access to any user’s account.	https://medium.com/@vikramroot/unauthorized-access-to-any-users-account-600e8efe7de0
+2021-10-24	7,500	A 7500$ Google sites IDOR	https://r0ckinxj3.wordpress.com/2021/10/24/a-7500-google-sites-idor/
+2021-10-22	-	Unauthorized access to any Facebook user’s draft profile picture frames	https://web.archive.org/web/20231004134528/https://appsecure.security/unauthorized-access-to-any-face-book-users-draft-profile-picture-frames/
+2021-10-03	600	$600 for IDOR (File or Folder Download)	https://encodedguy.medium.com/600-for-idor-file-or-folder-download-243166452dad
+2021-09-22	750	A fever Worth 750$- [Accessing Private Projects ]	https://medium.com/@shakti.gtp/a-fever-worth-750-accessing-private-projects-d113c561311f
+2021-09-16	-	A Small Tale of Account Takeover …	https://medium.com/@sarveshblogs/a-small-tale-of-account-takeover-2eba07a6ef5f
+2021-09-15	7500	How I hacked worldwide Tiktok users	https://s3c.medium.com/how-i-hacked-world-wide-tiktok-users-24e794d310d2
+2021-09-12	3,133.70	$3133.70 Google Dialogflow IDOR Vulnerability	https://asterfiester.medium.com/3133-70-google-dialogflow-idor-vulnerability-7a72771678dd
+2021-09-12	-	Exposing Millions of IRCTC Passengers' ticket details.	https://infosecwriteups.com/exposing-millions-of-irctc-passengers-ticket-details-53338280fb9e
+2021-09-11	5,000	$5000 Google IDOR Vulnerability Writeup	https://asterfiester.medium.com/5000-google-idor-vulnerability-writeup-c7b45926abe9
+2021-09-06	3,633.70	2 CSRF 1 IDOR on Google Marketing Platform	https://apapedulimu.click/story-of-idor-on-google-product/
+2021-09-03	-	IDOR Vulnerability In GraphQL Api On Website	https://aidilarf.medium.com/idor-vulnerability-in-graphql-api-on-website-bc45e050d1d3
+2021-09-02	-	Breaking Application’s Logic to DOS Attack	https://medium.com/nerd-for-tech/breaking-applications-logic-to-dos-attack-88326cd0dd82
+2021-09-02	-	Hacking Dutch Government For a lousy T-shirt	https://medium.com/pentesternepal/hacking-dutch-government-for-a-lousy-t-shirt-8e1fd1b56deb
+2021-08-29	4,300	Two account takeover bugs worth $4300 🎁	https://blog.usamav.dev/two-account-takeover-bugs-worth-4300-dollar-bounty
+2021-08-27	2,000	How I Scored 2K Bounty via an IDOR	https://infosecwriteups.com/how-i-scored-2k-bounty-via-an-idor-32eb2fa8aa1e
+2021-08-26	-	Oauth client secret leak and possible IDOR leading to PII Disclosure	https://web.archive.org/web/20210920030213/https://pmoc.netsoc.cloud/oauth-idor-pii/
+2021-08-25	-	Retrieve Archived Stories Of Any Public Instagram Account.	https://web.archive.org/web/20210826141443/https://medium.com/@navnz/retrieve-archived-stories-of-any-public-instagram-account-b3f5a26851f5
+2021-08-24	-	How i was able to steal private files of any user on Larksuite	https://web.archive.org/web/20210825045217/https://medium.com/@imunissar786/how-i-was-able-to-steal-private-files-of-any-user-on-larksuite-c0e2757429e2
+2021-08-22	-	Story Of Unexpected Bugs	https://medium.com/@nehpatel/story-of-unexpected-bugs-75734d51ac57
+2021-08-22	40	MonkeyType.com Stored Cross-Site Scripting	https://web.archive.org/web/20210909040725/https://obsrva.org/2021/08/22/monkeytype-disclosure.html
+2021-08-19	-	Account Takeover via Access Token Leakage	https://tuhin1729.medium.com/account-takeover-via-access-token-leakage-687276953408
+2021-08-13	-	How I found read/write access to the personal data of 3 million users of an E-commerce website?	https://medium.com/@psr595bro/how-i-found-read-write-access-to-the-personal-data-of-3-million-users-of-an-e-commerce-website-b9026b0d4bd3
+2021-08-09	-	Fuzzing + IDOR = Admin TakeOver	https://medium.com/@gonzalocarrascosec/fuzzing-idor-admin-takeover-5343bb8f436e
+2021-08-09	-	What is BOLA? 3-digit bounty from Topcoder ($$$)	https://infosecwriteups.com/what-is-bola-3-digit-bounty-from-topcoder-a25e7fae0d64
+2021-08-02	-	~/BugBounty/IDOR/”How I was able to exfiltrate any user’s credit coupons”	https://ja1sharma.medium.com/bugbounty-idor-how-i-was-able-to-exfiltrate-any-users-credit-coupons-49631d9f3bc8
+2021-08-02	-	Privilege Escalation | stealing user’s point | Bugcrowd	https://medium.com/@abhinda1996/privilege-escalation-private-program-bugcrowd-831a7eb58b6c
+2021-07-31	-	How I escalate my Self-Stored XSS to Account Takeover with the help of IDOR	https://gonzx.medium.com/how-i-escalate-my-self-stored-xss-to-account-takeover-with-the-help-of-idor-f20733ecdbe9
+2021-07-30	3,000	Facebook Vulnerability: Expose Group Member — $3000	https://medium.com/@muhammadsholikhin/facebook-vulnerability-expose-group-member-3000-cca809a53f6b
+2021-07-29	-	How I found my first IDOR in HackerOne	https://n1ghtmar3.medium.com/how-i-found-my-first-idor-in-hackerone-5d5f17bb431
+2021-07-27	3,000	Abusing JSON Web Token to steal accounts — 3000$	https://filipaze.medium.com/abusing-json-web-token-to-steal-accounts-3000-b9f7daeaef81
+2021-07-21	-	Escalating Self-XSS To Stored XSS via Image injection + IDOR	https://www.r29k.com/articles/bb/self-xss-to-stored-xss
+2021-07-18	1,500	Facebook Vulnerability: $1500 for Removing Document Cover	https://medium.com/@muhammadsholikhin/facebook-vulnerability-1500-for-removing-document-cover-9ffd0173877b
+2021-07-08	-	IDOR on clientauthconfig.googleapis.com	https://feed.bugs.xdavidhu.me/bugs/0009
+2021-07-03	-	View Other User Private Livestream Data	https://gevakun.medium.com/view-other-user-private-livestream-data-e30a0acb5972
+2021-06-30	500	Testing Cookies worth $500	https://sankalpa02.medium.com/testing-cookies-worth-500-8fc2310e6d7e
+2021-06-26	-	Some ways to find more IDOR	https://16521092.medium.com/some-ways-to-find-more-idor-da16c93954e5
+2021-06-15	30,000	This is how I was able to see Private, Archived Posts/Stories of users on Instagram without following them	https://fartademayur.medium.com/this-is-how-i-was-able-to-see-private-archived-posts-stories-of-users-on-instagram-without-de70ca39165c
+2021-06-10	2	Unexpected IDOR Vulnerability in [REDACTED] - [redacted].net (Write Up)	https://blog.evanricafort.com/2021/06/2usd-idor-bug-in-redacted.html
+2021-05-23	-	Disclose leads form details of any Facebook Business Account or Facebook Page (Bug Bounty)	https://amineaboud.medium.com/disclose-leads-form-details-of-any-facebook-business-account-or-facebook-page-bug-bounty-7ecae6cff312
+2021-05-21	4,000	Finding and Exploiting Unintended Functionality in Main Web App APIs	https://bendtheory.medium.com/finding-and-exploiting-unintended-functionality-in-main-web-app-apis-6eca3ef000af
+2021-05-07	27,500	Workplace by Facebook | Unauthorized access to companies environment — $27,5k	https://mvinni.medium.com/workplace-by-facebook-unauthorized-access-to-companies-environment-27-5k-a593a57092f1
+2021-05-02	2,000	IDOR Leads To Leak Any Uber Eats Restaurant Analytics	https://0xprial.com/idor-leads-to-leak-any-uber-eats-restaurant-analytics/
+2021-04-20	-	IDOR leads to leaked the likes count even though is hidden by victim | YouTube ($XXXX)	https://bloggerrando.blogspot.com/2021/04/idor-leads-to-how-many-likes-that-was.html
+2021-04-18	-	Misconfiguration in Change-password Functionality Leads to Account Takeover	https://0x2m.medium.com/misconfiguration-in-change-password-functionality-leads-to-account-takeover-1314b5507abf
+2021-04-17	750	(POC) Update business fyi message as Facebook page analyst	https://edmundaa222.medium.com/poc-update-business-fyi-message-as-facebook-page-analyst-d36170fdede2
+2021-04-02	951	Bragging Rights: Let’s head back to bug bucket	https://infosecwriteups.com/bragging-rights-lets-head-back-to-bug-bucket-88c94730b6fa
+2021-03-31	2,750	I felt like there were no more bugs left after winning € 2000 … But an email worth €750 changed my mind	https://thexssrat.medium.com/i-felt-like-there-were-no-more-bugs-left-after-winning-2000-but-an-email-worth-750-changed-my-c7a507649060
+2021-03-28	-	How I was able to see likes and dislikes count even though is hidden by victim | YouTube #1	https://bloggerrando.blogspot.com/2021/03/bug-bounty-like-and-dislike-count.html
+2021-03-26	-	How I was able to see likes and dislikes count even though is hidden by victim | YouTube #2	https://bloggerrando.blogspot.com/2021/03/bug-bounty-idor-in-youtube-bounty.html
+2021-03-21	1,000	How I made it to Google HOF?	https://sudhanshur705.medium.com/how-i-made-it-to-google-hof-f1cec85fdb1b
+2021-03-17	-	An Interesting Account Takeover!!	https://mayank-01.medium.com/an-interesting-account-takeover-3a33f42d609d
+2021-03-14	-	IDOR Vulenebility with empty response still exposing sensitive details of customers!	https://rahulvarale.medium.com/idor-vulenebility-with-empty-response-still-exposing-sensitive-details-of-customers-bdce0a6a1b07
+2021-02-26	-	IDOR which allowed me to view Personal Email Addresses of More than 50K Users!	https://web.archive.org/web/20210226210519/https://savirsuda.github.io/IDOR-to-view-personal-email-addresses-of-more-than-50k-users/
+2021-02-17	-	Story of a very lethal IDOR.	https://vedanttekale20.medium.com/idor-that-allowed-me-to-takeover-any-users-account-129e55871d8
+2021-02-15	1,000	Full account takeover worth $1000 Think out of the box	https://mokhansec.medium.com/full-account-takeover-worth-1000-think-out-of-the-box-808f0bdd8ac7
+2021-02-14	450	IDOR via Websockets allow me to takeover any users account	https://mokhansec.medium.com/idor-via-websockets-allow-me-to-takeover-any-users-account-23460dacdeab
+2021-02-14	250	How I Hacked Everyone’s Resume/CV’s and Got €€€	https://vbharad.medium.com/how-i-hacked-everyones-resume-cv-s-and-got-851aaa4d75d9
+2021-02-13	1,150	Changing other users Episode title & description - IDOR Vulnerability in [REDACTED] (Write Up)	https://blog.evanricafort.com/2021/02/idor-in-redacted.html
+2021-02-10	-	Sending ephemeral message to any Facebook user	https://servicenger.com/blog/mobile/sending-ephemeral-message-to-any-facebook-user/
+2021-02-01	-	Access developer tasks list of any Facebook Application (GraphQL IDOR)	https://amineaboud.medium.com/access-developer-tasks-list-of-any-of-facebook-application-graphql-idor-62307c5e5b34
+2021-01-30	-	An Interesting Account Takeover Vulnerability	https://avanishpathak46.medium.com/an-interesting-account-takeover-vulnerability-a1fbec0e01a
+2021-01-29	-	Broken Access Control & Stored XSS - Easy Hunt	https://web.archive.org/web/20210201180254/https://www.cysek.org/post/bac-sxss
+2021-01-27	1,550	Bragging Rights(Part 1): Short story of a bug wave	https://medium.com/bugbountywriteup/bragging-rights-part-1-short-story-of-a-bug-wave-dbb88f48b604
+2021-01-25	-	IDOR Revealing Images CDN Links	https://susanwagle123.medium.com/idor-revealing-images-cdn-links-6589e19bdbaf
+2021-01-19	-	[Bug Bounty] 600$ Info Disclosure: obtain any user’s backup data	https://medium.com/bugbountywriteup/bug-bounty-600-info-disclosure-a-token-is-not-the-same-on-all-endpoints-febf5b7ea745
+2021-01-16	-	My first and last crit of 2020 on Hackerone	https://takester.medium.com/my-first-and-last-crit-of-2020-on-hackerone-702a694781b0
+2021-01-12	-	CSRF with IDOR - A Deadly Combo	https://shahjerry33.medium.com/csrf-with-idor-a-deadly-combo-203e93967702
+2021-01-11	5,000	Stealing Your Private YouTube Videos, One Frame at a Time	https://bugs.xdavidhu.me/google/2021/01/11/stealing-your-private-videos-one-frame-at-a-time/
+2021-01-08	30,000	Create post on any Facebook page	https://www.darabi.me/2020/12/create-invisible-post-on-any-facebook.html
+2021-01-03	5,000	Expose the email address of Workplace users	https://ysamm.com/?p=588
+2021-01-01	-	API based IDOR to leaking Private IP address of 6000 businesses	https://rafi-ahamed.medium.com/api-based-idor-to-leaking-private-ip-address-of-6000-businesses-6bc085ac6a6f
+2020-12-29	-	Sensitive data leak using IDOR in integration service	https://ronak-9889.medium.com/sensitive-data-leak-using-idor-in-integration-service-d9301be9c91e
+2020-12-20	1,500	Worth $1,500 IDOR (Access Unauthorize Data)	https://web.archive.org/web/20210123173946/https://protector47.medium.com/worth-1-500-idor-access-unauthorize-data-52604aec99
+2020-11-18	2,000	GraphQL IDOR in Facebook streamer dashboard.	https://kailashbohara.com.np/blog/2020/11/18/GraphQL-IDOR-in-Facebook-streamer-dashboard/
+2020-11-15	4,750	Optimizing Hunting Results in VDP for use in Bug Bounty Programs - From Sensitive Information Disclosure to Accessing Hidden APIs which can be used to Retrieve Customer Data	http://www.firstsight.me/2020/11/optimizing-hunting-results-in-vdp-for-use-in-bug-bounty-programs-from-sensitive-information-disclosure-to-accessing-hidden-apis-which-can-be-used-to-retrieve-customer-data/
+2020-11-15	-	Weak Cryptography to Account Takeover’s	https://medium.com/@vasuyadav0786/weak-cryptography-to-account-takeovers-87782224ed0d
+2020-11-14	-	Theoretically Possible To Practical Account Takeover	https://ironfisto.medium.com/theoretically-possible-to-practical-account-takeover-c9383ab03f76
+2020-11-07	-	How i could take over any Account on a USA Department of Defense Website due to a simple IDOR	https://web.archive.org/web/20221110072323/https://galnagli.com/DoD_IDOR/
+2020-10-27	6,337	The YouTube bug that allowed unlisted uploads to any channel	https://medium.com/bugbountywriteup/the-youtube-bug-that-allowed-uploads-to-any-channel-3b41c7b7902a
+2020-10-25	-	My first bug on Google	https://medium.com/bugbountywriteup/my-first-bug-on-google-observation-wins-1a13d0ea54b0
+2020-10-24	-	Accidental Observation to Critical IDOR	https://medium.com/bugbountywriteup/accidental-observation-to-critical-idor-d4d910a855bf
+2020-10-07	288,500	We Hacked Apple for 3 Months: Here’s What We Found	https://samcurry.net/hacking-apple/
+2020-10-07	6,000	6k$ Worth Account Takeover via IDOR in Starbucks Singapore	http://www.kamilonurozkaleli.com/posts/starbucks-singapore-account-takeover/
+2020-09-29	-	The Art of IDOR: 7 IDORs in Edm0d0	https://medium.com/@pratyush1337/the-art-of-idor-7-idors-in-edm0d0-b86d683c8de9
+2020-09-27	-	5 Ways to do Account Takeover in a Single Website	https://medium.com/@vasuyadav0786/5-ways-to-do-ato-in-a-single-website-cfe7e5da987e
+2020-09-25	-	PII Leakage via IDOR + Weak PasswordReset = Full Account Takeover	https://medium.com/bugbountywriteup/pii-leakage-via-idor-weak-passwordreset-full-account-takeover-58d159f88d73
+2020-09-22	800	#Bugbounty- “How I was able to see other users Payments in a travel application” — IDOR #800$	https://medium.com/@haxor8595/bugbounty-how-i-was-able-to-see-other-users-payments-in-a-travel-application-idor-800-2060db62cbbe
+2020-09-19	512	Privilege Escalation via Account Takeover on NodeBB Forum Software — Bug Bounty (512$) — CVE-2020–15149	https://medium.com/bugbountywriteup/privilege-escalation-via-account-takeover-on-nodebb-forum-software-512-a593a7b1b4a4
+2020-09-04	25,000	Account Takeover via IDOR	https://blog.deteact.com/account-takeover-via-idor/
+2020-09-02	-	Cloud firewall management API SNAFU put 500k SonicWall customers at risk	https://www.pentestpartners.com/security-blog/cloud-firewall-management-api-snafu-put-500k-sonicwall-customers-at-risk/
+2020-08-26	-	Delete IDOR on a Fashion eCommerce Website	https://techkranti.com/delete-idor-on-a-fashion-ecommerce-website/
+2020-08-22	-	Upload to the future	https://medium.com/bugbountywriteup/upload-to-the-future-1fd38fd502bd
+2020-07-26	-	A Simple IDOR which should not be missed on dating site ;)	https://medium.com/@vneelam609/a-simple-idor-which-should-not-be-missed-on-dating-site-c500cba8e6c3
+2020-07-21	200	Hack Till Your Last Breath	https://medium.com/@totmukesh/hack-till-your-last-breath-3e58f4fb1738
+2020-07-17	5,000	Idor in google product	https://medium.com/@balook/idor-in-google-datastudio-google-com-f2fa51b763de
+2020-07-09	-	Journey from low to critical bug $$$	https://medium.com/@dheerajkmadhukar/journey-from-low-to-critical-bug-2ab98db2eec1
+2020-07-05	-	Make Featured Product in any video	https://medium.com/@yaala/make-featured-product-in-any-video-ec2bd4816ae4
+2020-07-05	-	Taking Over Files in a chat —IDOR in Microsoft Teams	https://medium.com/@alyanwar/taking-over-files-in-a-chat-idor-in-microsoft-teams-e5289c2efd0
+2020-07-03	135	[Writeup][Bug Bounty][Tokopedia] Manipulate Other User’s Cart and Wishlist on Tokopedia [EN]	https://fadhilthomas.github.io/post/bug-bounty-tokopedia-03/
+2020-06-23	-	All About Getting First Bounty with IDOR	https://medium.com/bugbountywriteup/all-about-getting-first-bounty-with-idor-849db2828c8
+2020-06-15	-	Business logic flaw in the invitation system allows to Takeover any account at a private company	https://medium.com/bugbountywriteup/business-logic-flaw-in-invitation-system-allows-to-takeover-any-account-at-private-company-daaf898966b0
+2020-06-05	-	[IDOR] Delete saved credit cards from any Business Manager Account — Facebook Bug Bounty	https://medium.com/@rohitcoder/idor-delete-saved-credit-cards-from-any-business-manager-account-f28c773982eb
+2020-06-04	10,000	Another image removal vulnerability on Facebook	https://blog.darabi.me/2020/06/image-removal-vulnerability-on-facebook.html
+2020-05-31	-	Hunting on ASPX Application For P1's [Unauthenticated SOAP,RCE, Info Disclosure]	https://elmahdi.tistory.com/3
+2020-05-29	2,000	IDOR in session cookie leading to Mass Account Takeover	https://zonduu.medium.com/idor-in-session-cookie-leading-to-mass-account-takeover-d815ff3732d5
+2020-05-26	-	Chaining an IDOR with a business-logic error to achieve critical impact	https://jub0bs.com/posts/2020-05-26-idor/
+2020-05-22	-	How Source code reading helped me find an IDOR	http://hack4bounty.com/how-source-code-reading-helped-me-find-an-idor/
+2020-05-18	117	My first 10k bdt bounty from an e-commerce site	https://medium.com/@0xh7ml.py/my-first-10k-bdt-bounty-from-an-e-commerce-site-cec9d58e1f55
+2020-05-17	10,000	One Param => $10k	https://medium.com/@bilalmerokhel/one-param-10k-9d80a33f5eb5
+2020-05-16	1,050	Chained Bugs [ Account TakeOver ]	https://medium.com/@bilalmerokhel/chained-bugs-account-takeover-ceff67d1d55a
+2020-04-30	6,000	Hacking Razer Pay Ewallet App	https://blog.sambal0x.com/2020/04/30/Hacking-razer-pay-ewallet-app.html
+2020-04-18	-	How was i able to find privilege escalation.	https://medium.com/@np20121996/how-was-i-able-to-find-privilege-escalation-b13366b97706
+2020-04-11	-	How i Unlocked the blocked accounts?	https://medium.com/bugbountywriteup/how-i-unlocked-the-blocked-accounts-545e9b7d7be1
+2020-04-07	-	Listing all registered email addresses on Google’s Crisis Map thanks to IDOR and incremental IDs	https://websecblog.com/vulns/listing-email-addresses-on-google-crisis-map/
+2020-03-26	-	Stealing Videos From VLC	https://www.inputzero.io/2020/03/idor-in-vlc-ios.html
+2020-02-16	-	Blind IDOR in LinkedIn iOS application	https://hailstorm1422.com/linkedin-blind-idor/
+2020-02-11	4,500	A Simple IDOR to Account Takeover	https://medium.com/@swapmaurya20/a-simple-idor-to-account-takeover-88b8a1d2ec24
+2020-02-08	-	Determine users with detailed role model on behalf of any Facebook Application	https://www.amolbaikar.com/determine-users-with-detailed-role-model-on-behalf-of-any-facebook-application/
+2020-02-07	-	IDOR leads to Data leakage and Profile Update	https://web.archive.org/web/20200223073527/https://victoni.github.io/changing-userID-leads-to-data-leak/
+2020-02-04	-	Easily leaking passenger information on an Airline	https://medium.com/@zseano/easily-leaking-passenger-information-on-an-airline-18f99b22cf95
+2020-02-02	-	Disclose Full Admin List of any Facebook Applications	https://www.amolbaikar.com/disclose-full-admin-list-of-any-facebook-applications/
+2020-01-28	750	Adding anyone including non-friend and blocked people as co-host in personal event!	https://publish.whoisbinit.me/adding-anyone-including-non-friend-and-blocked-people-as-co-host-in-personal-event
+2020-01-25	325	Accidental IDOR that Deleted Admin Account.	https://medium.com/bugbountywriteup/accidental-idor-that-deleted-admin-account-d51264292b66
+2020-01-22	-	A Less Known Attack Vector, Second Order IDOR Attacks	https://medium.com/@ozguralp/a-less-known-attack-vector-second-order-idor-attacks-14468009781a
+2019-12-31	-	Story of an IDOR via HTTP	https://footstep.ninja/posts/idor-via-http/
+2019-12-31	-	Exploiting a Self Stored XSS with an IDOR	https://footstep.ninja/posts/exploiting-self-xss/
+2019-12-24	3,000	Airbnb : Steal Earning of Airbnb hosts by Adding Bank Account/Payment Method (IDOR)	https://www.indoappsec.in/2019/12/airbnb-steal-earning-of-airbnb-hosts-by.html
+2019-12-24	-	GraphQL IDOR leads to information disclosure	https://medium.com/bugbountywriteup/graphql-idor-leads-to-information-disclosure-175eb560170d
+2019-12-16	750	Inf0rM@tion Disclosure via IDOR	https://medium.com/@pratyush1337/inf0rm-tion-disclosure-via-idor-cff5541a9232
+2019-12-05	-	HTTP Request Smuggling + IDOR	https://hipotermia.pw/bb/http-desync-idor
+2019-11-23	-	IDOR via Websockets	https://footstep.ninja/posts/idor-via-websockets/
+2019-11-21	3,650	Stories Of IDOR-Part 2	https://medium.com/bugbountywriteup/stories-of-idor-part-2-29d313a39e55
+2019-11-20	-	How I could delete Facebook Ask for Recommendations post’s place objects in comments	https://medium.com/@rajasudhakar/how-i-could-delete-facebook-ask-for-recommendations-posts-place-objects-in-comments-b7c9bcdf1c92
+2019-11-15	135	[Writeup][Bug Bounty][Tokopedia] Manipulation of Likes in Product Reviews [EN]	https://fadhilthomas.github.io/post/bug-bounty-tokopedia-01-en/
+2019-11-15	-	Chains on Chains!! Chaining several IDOR’s into Account Takeover(PART ONE)	https://medium.com/@masonhck357/chains-on-chains-chaining-several-idors-into-account-takeover-part-one-373627f2910f
+2019-10-04	-	From Multiple IDORs leading to Code Execution on a different Host Container	https://rahulr.in/idor-to-rce/
+2019-10-01	28	One Way to Find Hidden IDOR Vulnerability	https://web.archive.org/web/20200807155301/https://gh0st.cn/archives/2019-10-01/1
+2019-09-28	-	Stories Of IDOR	https://medium.com/@hackrider/stories-of-idor-4966369e6d82
+2019-09-21	-	A Simple bypass of Registration Activation that Lead to many Bug -	https://web.archive.org/web/20191214144210/https://medium.com/bugbountywriteup/a-simple-bypass-of-registration-activation-that-lead-to-many-bug-a-story-about-how-my-friend-5df0889f1062
+2019-09-09	-	Accessing 2 million Verizon Pay Monthly contracts	https://web.archive.org/web/20191109194557/https://daleys.space/writeup/0day/2019/09/09/verizon-leak.html
+2019-08-19	2,500	Removing profile pictures for any Facebook user	https://philippeharewood.com/removing-profile-pictures-for-any-facebook-user/
+2019-08-09	120	Read other user support tickets in https://support..com (Write Up)	https://blog.evanricafort.com/2019/08/read-other-user-support-tickets-in.html
+2019-08-01	-	Download predictions details of ads plans of any business.	https://ysamm.com/?p=291
+2019-08-01	500	Access portal of Facebook mobile retailers and see earnings and referrals reports.	https://ysamm.com/?p=314
+2019-07-30	10,500	Paypal bug $10K - All Secondary users account takeover leads to unauthorized money transfer from paypal business accounts	https://web.archive.org/web/20210124152317/https://whitehathaji.blogspot.com/2019/07/paypal-bug-10k-all-secondary-users.html
+2019-07-29	300	1st Bounty Story | Rewarded 300$ (IDOR)	https://medium.com/@mdhridoy_4607/1st-bounty-story-rewarded-300-idor-bc4e1708e8e0
+2019-07-29	-	Story of an IDOR via Email	https://footstep.ninja/posts/idor-via-email/
+2019-07-26	-	Full Account Takeover via Changing Email And Password of any User through API Parameters	https://web.archive.org/web/20201008153910/https://medium.com/@adeshkolte/full-account-takeover-changing-email-and-password-of-any-user-through-api-parameters-3d527ab27240
+2019-07-15	9,000	The Bugs Are Out There, Hiding in Plain Sight	https://medium.com/a-bugz-life/the-bugs-are-out-there-hiding-in-plain-sight-12d056613ea3
+2019-07-13	-	Account takeover on Airbnb acquisition | An Unusual Bug Part-2 🐛	https://medium.com/@princechaddha/account-takeover-on-airbnb-acquisition-an-unusual-bug-part-2-45fab11dc407
+2019-07-10	2,650	Tale of account takeover — Sensitive info Disclosure + Broken Access Control	https://medium.com/@sakyb7/tale-of-account-takeover-sensitive-info-disclosure-broken-access-control-cea0a5e3a1fd
+2019-07-01	-	Accidental IDOR	https://medium.com/@saadahmedx/accidental-idor-8987a2728d4
+2019-06-24	-	Download .arexport files for any public AR Studio Effect	https://philippeharewood.com/download-arexport-files-for-any-public-ar-studio-effect/
+2019-06-22	1,200	Password Reset Vulnerability — Full Account takeover (Insecure Direct Object Reference)	https://web.archive.org/web/20201001064738/https://medium.com/@protector47/password-reset-vulnerability-full-account-takeover-insecure-direct-object-reference-c4a9a3ea8268
+2019-06-20	-	IDOR: Payment Fraud	https://medium.com/@Vibhurushi_Chotaliya/idor-payment-fraud-99d330879c0d
+2019-06-14	500	IDOR — Account Takeover	https://medium.com/@saadahmedx/idor-account-takeover-1ff5a2d03b8b
+2019-06-14	20,000	How spending our Saturday hacking earned us 20k	https://web.archive.org/web/20201028215444/http://incidentsecurity.com/how-spending-our-saturday-hacking-earned-us-20k/
+2019-06-11	-	Account takeover using IDOR and the misleading case of error 403.	https://medium.com/bugbountywriteup/account-takeover-using-idor-and-the-misleading-case-of-error-403-cb42c96ea310
+2019-06-09	-	IDOR Leads To Project Takeover	https://medium.com/@hariharan21/idor-leads-to-project-takeover-548a1bfd4d66
+2019-04-16	5,000	A $5000 IDOR…	https://medium.com/@mr_hacker/a-5000-idor-f4268fffcd2e
+2019-04-15	-	How I gained access to revenue and traffic data of thousands of Shopify stores	https://blog.usejournal.com/how-i-gained-access-to-revenue-and-traffic-data-of-thousands-of-shopify-stores-b6fe360cc369
+2019-04-06	-	Edmodo — IDOR to view private files of any class	https://medium.com/@rohan_x3/edmodo-idor-to-view-private-files-of-any-class-2280676c84b8
+2019-04-01	-	EdM0d0 IDOR Vulnerabilities	https://medium.com/@pratyush1337/edm0d0-idor-vulnerabilities-95ca8600ee1c
+2019-03-28	5,000	My very first bug: a dreaded dupe and then an IDOR jackpot!	https://medium.com/h4x00r/my-very-first-bug-a-dreaded-dupe-and-then-an-idor-jackpot-d01b69f6fbae
+2019-03-16	4,000	Disclosure of Pending Roles for any Facebook Page	https://medium.com/@avinash_/disclosure-of-pending-roles-for-any-facebook-page-ab6e4e219f8e
+2019-03-14	-	How I was able to pwned 30000+ user’s webhook	https://medium.com/@vis_hacker/how-i-was-able-to-pwned-30000-users-webhook-d26dc3420703
+2019-03-10	-	Inserting malware into anyone’s Google Earth Projects Archive	https://websecblog.com/vulns/google-earth-studio-vulnerability/
+2019-03-04	1,000	Facebook exploit – Confirm website visitor identities	http://www.tomanthony.co.uk/blog/facebook-bug-confirm-user-identities/
+2019-02-20	-	Bug Writeup: FBCTF IDOR	https://georgeosterweil.com/2019-02-20-fbctf-idor/
+2019-02-16	-	Bypass password confirmation in Facebook “DYI” feature	https://ysamm.com/?p=240
+2019-02-13	15,000	Disclose private attachments in Facebook Messenger Infrastructure - 15,000$	https://medium.com/bugbountywriteup/disclose-private-attachments-in-facebook-messenger-infrastructure-15-000-ae13602aa486
+2019-02-12	-	Hacking YouTube for #fun and #profit	https://www.linkedin.com/pulse/hacking-youtube-fun-profit-alexandru-coltuneac/
+2019-02-07	-	Leak of private/in-development app ids, names and translation requests	https://ysamm.com/?p=171
+2019-02-02	-	How I was able to Extract Information of Other Users- Exploiting IDOR	https://medium.com/@rupika.luhach/how-i-was-able-to-extract-information-of-other-users-exploiting-idor-9f03aa72dd06
+2019-01-30	7,560	Publish tweets by any other user	https://medium.com/@kedrisec/publish-tweets-by-any-other-user-6c9d892708e3
+2019-01-26	-	AntiHack IDOR on Create Submission	https://medium.com/@sahruldotid/antihack-idor-on-create-submission-ddb3cf40c26b
+2019-01-23	-	Privilege Escalation to Highest Admin Privileges	https://gauravnarwani.com/priv-esc-highest-admin/
+2019-01-22	-	Disclose page’s admins and its Monetization payout details	https://ysamm.com/?p=60
+2019-01-22	-	Disclose page violations and its eligibility to use Ad-breaks	https://ysamm.com/?p=64
+2019-01-22	-	Disclose Instagram business account linked to a Facebook page	https://ysamm.com/?p=56
+2019-01-22	-	Expose business email and payment account balance of any Facebook commerce page.	https://ysamm.com/?p=45
+2019-01-22	-	Reveal if a Facebook merchant page has pending or completed orders.	https://ysamm.com/?p=42
+2019-01-22	-	Generate Access Tokens for any Facebook user	https://ysamm.com/?p=35
+2019-01-11	-	Workplace Logo ID to workplace owner name Disclosure Facebook Bug Bounty	https://medium.com/@evilboyajay/workplace-logo-id-to-workplace-owner-name-disclosurefacebook-bug-bounty-e745db59d0bd
+2019-01-03	-	Yes I can see your OTP	https://web.archive.org/web/20191217045127/https://medium.com/vulnerables/yes-i-can-see-your-otp-9334cd27f021
+2019-01-02	5,040	How I was able to Harvest other Vine users IP address	https://bugbountypoc.com/how-i-was-able-to-harvest-other-vine-users-ip-address
+2018-12-30	-	How I was able to delete Google Gallery Data [IDOR]	https://medium.com/@yogeshtantak7788/how-i-was-able-to-delete-google-gallery-data-idor-53d2f303efff
+2018-12-28	1,500	How I Was Able To Takeover All User Account And Admin Panel	https://addictivehackers.blogspot.com/2018/12/how-i-was-able-to-takeover-all-user.html
+2018-12-11	4,133.7	How I could have stolen your photos from Google	https://avatao.com/blog-how-i-could-have-stolen-your-photos-from-google-my-first-3-bug-bounty-writeups/
+2018-12-11	-	How I was able to generate Access Tokens for any Facebook user.	https://medium.com/bugbountywriteup/how-i-was-able-to-generate-access-tokens-for-any-facebook-user-6b84392d0342
+2018-12-09	-	Change Anyone’s profile picture-Exploiting IDOR	https://medium.com/@rupika.luhach/change-anyones-profile-picture-exploiting-idor-41369f5acf75
+2018-11-16	-	HackenProof Customer Story: Uklon	https://blog.hackenproof.com/customer-stories/hackenproof-customer-story-uklon/
+2018-11-07	7,560	Vine User’s Private information disclosure	https://medium.com/@prial261/vine-users-private-information-disclosure-f1c55a3abbb6
+2018-11-05	-	Duplicate but still cool	https://medium.com/bugbountywriteup/duplicate-but-still-cool-236835685075
+2018-10-30	1,500	IDOR in JWT and the shortest token you will ever see {}.{“uid”: “1234567890”}	https://medium.com/@plenumlab/idor-in-jwt-and-the-shortest-token-you-will-ever-see-uid-1234567890-4e02377ea03a
+2018-10-27	-	Privilege Escalation like a Boss	https://blog.securitybreached.org/2018/10/27/privilege-escalation-like-a-boss/
+2018-10-26	-	How Misconfigured API leaked user private information?	https://medium.com/@Skylinearafat/how-misconfigured-api-leaked-user-private-information-e3e8c13e52e4
+2018-10-18	-	Add comment on a private Oculus Developer bug report	https://medium.com/bugbountywriteup/add-comment-on-a-private-oculus-developer-bug-report-93f35bc80b2c
+2018-10-12	6,500	Add description to Instagram Posts on behalf of other users - 6500$	https://medium.com/bugbountywriteup/add-description-to-instagram-posts-on-behalf-of-other-users-6500-7d55b4a24c5a
+2018-10-09	2,500	Get as image function pulls any Insights/NRQL data from any New Relic account (IDOR)	https://jonbottarini.com/2018/10/09/get-as-image-function-pulls-any-insights-nrql-data-from-any-new-relic-account-idor/
+2018-10-09	-	Make any Unit in Facebook Groups Undeletable	https://medium.com/bugbountywriteup/make-any-unit-in-facebook-groups-undeletable-efb68e26adb9
+2018-09-28	-	IDOR, Content Spoofing and Url Redirection via unsubscribe email in Confluent	https://medium.com/@justmorpheus/idor-content-spoofing-and-url-redirection-via-unsubscribe-email-in-confluent-1fa7398cfe7a
+2018-09-28	1,623	Just another tale of severe bugs on a private program.	https://medium.com/@sivakrishnasamireddi/just-another-tale-of-severe-bugs-on-a-private-program-405870b03532
+2018-09-21	-	Bypassing Firebase authorization to create custom goo.gl subdomains	https://websecblog.com/vulns/bypassing-firebase-authorization-to-create-custom-goo-gl-subdomains/
+2018-09-16	1,200	IDOR User Account Takeover By Connecting My Facebook Account with victims Account	https://blog.securitybreached.org/2018/09/16/idor-account-takeover-using-facebook/
+2018-09-07	-	Simple Login Brute Force / Current Password Requirement Bypass	https://medium.com/@ciph3r7r0ll/simple-login-brute-force-current-password-requirement-bypass-e8f58931e257
+2018-09-07	-	#BugBounty — How Naaptol (India’s popular home shopping company) Kept their Millions of User Data at Risk!	https://medium.com/@logicbomb_1/bugbounty-how-naaptol-indias-popular-home-shopping-company-kept-their-millions-of-user-data-e414cd4151c
+2018-08-28	-	IDOR FACEBOOK: malicious person add people to the “Top Fans”	https://medium.com/@UpdateLap/idor-facebook-malicious-person-add-people-to-the-top-fans-4f1887aad85a
+2018-08-24	-	Privileged Escalation in Facebook Messenger Rooms	https://medium.com/@UpdateLap/privileged-escalation-in-facebook-messenger-rooms-e71cb7275101
+2018-08-17	-	YAHOO IDOR -elimination of any comment	https://medium.com/@black_b/yahoo-idor-elimination-of-any-comment-e898f4f955f1
+2018-08-16	-	IDOR leads to account takeover	https://web.archive.org/web/20220309092244/https://s0cket7.com/idor-account-takeover/
+2018-08-12	-	IDOR leads to getting Access tokens of users linked to Google Drive on Edmodo	https://medium.com/bugbountywriteup/idor-leads-to-getting-access-tokens-of-users-linked-to-google-drive-on-edmodo-3978017134bd
+2018-08-07	-	How I hacked a Crypto Exchange (Bug Bounty Writeup)	https://steemit.com/cryptocurrency/@mabdullah22/how-i-hacked-a-crypto-exchange-bug-bounty-writeup
+2018-08-03	-	#BugBounty — @Paytm Customer Information is at risk — India’s largest digital wallet company	https://medium.com/@logicbomb_1/bugbounty-paytm-customer-information-is-at-risk-indias-largest-digital-wallet-company-6f7116d4b2d5
+2018-07-21	-	IDOR FACEBOOK: malicious person add people to the "Top Fans"	https://www.updatelap.com/2018/07/the-malicious-person-add-people-to-top.html
+2018-07-19	-	How I was able to delete 13k+ Microsoft Translator projects	https://haiderm.com/how-i-was-able-to-delete-13k-microsoft-translator-projects/
+2018-07-10	5,000	Gsuite Hangouts Chat 5k IDOR	https://secreltyhiddenwriteups.blogspot.com/2018/07/gsuite-hangouts-chat-5k-idor.html
+2018-07-02	-	Chaining Multiple Vulnerabilities to Gain Admin Access	https://www.nahamsec.com/posts/chaining-multiple-vulnerabilities-to-gain-admin-access
+2018-06-20	10,000	Using a GitHub app to escalate to an organization owner for a $10,000 bounty	https://medium.com/@cachemoney/using-a-github-app-to-escalate-to-an-organization-owner-for-a-10-000-bounty-4ec307168631
+2018-06-12	1,250	Full account Takeover via reset password function	https://medium.com/@khaled.hassan/full-account-takeover-via-reset-password-function-8b6ef15f346f
+2018-05-30	3,500	Account Takeover and Blind XSS! Go Pro, get Bugs!	https://blog.witcoat.com/2018/05/30/account-takeover-and-blind-xss-go-pro-get-bugs/
+2018-05-23	-	How I was able to see any private album passwrod in Picturepush — IDOR	https://medium.com/@r99tiq/idor-how-i-was-able-to-see-any-private-album-passwrod-in-picturepush-264913f45e10
+2018-05-23	-	#BugBounty — "How I was able to hack any user account via password reset?"	https://medium.com/@BgxDoc/bugbounty-how-i-was-able-to-hack-any-user-account-via-password-reset-9009d84d94ff
+2018-05-19	-	How i HACKED admin account via password reset IDOR function of one private currency exchanger site	https://medium.com/@aayushpokhrel/how-i-hacked-admin-account-via-password-reset-idor-of-one-private-currency-exchanger-site-51723c7c8704
+2018-05-03	3,000	Disclose Private Video Thumbnail from Facebook WorkPlace	https://medium.com/bugbountywriteup/disclose-private-video-thumbnail-from-facebook-workplace-52b6ec4d73b7
+2018-04-26	-	Bypassing the Confirmation Email for Newsletter (bof.nl)	https://medium.com/@mdisrail2468/bypassing-the-confirmation-email-for-newsletter-bof-nl-682c05cb927f
+2018-04-18	-	Ribose — IDOR with Simple CSRF Bypass — Unrestricted Changes and Deletion to other Photo Profile	https://medium.com/@YoKoKho/ribose-idor-with-simple-csrf-bypass-unrestricted-changes-and-deletion-to-other-photo-profile-e4393305274e
+2018-04-18	-	How I Get the Name of the Hotel (and other Data) that you ever Stay - Personal Data Leaks: Private Bug Bounty Program	https://medium.com/@YoKoKho/idor-at-private-bug-bounty-program-that-could-leads-to-personal-data-leaks-d2536d026bf5
+2018-04-17	-	IDOR (at Private Bug Bounty Program) that could Leads to Personal Data Leaks	http://firstsight.me/2018/04/idor-at-private-bug-bounty-program-that-could-leads-to-personal-data-leaks/
+2018-04-16	-	Spoof an user to create a description of a group in Flickr	https://medium.com/@saamux/spoof-a-user-to-create-a-description-of-a-group-in-flickr-72b6b8432404
+2018-04-14	59,400	How I hacked companies related to the crypto currency and earned $60,000	https://medium.com/@iSecMax/how-i-hacked-companies-related-to-the-crypto-currency-and-earned-60-000-93e9b3299f4e
+2018-04-05	-	#BugBounty — ” Your details are saved into my account”-User info disclosure Vulnerability in Practo (India’s biggest healthcare app)	https://medium.com/@logicbomb_1/bugbounty-your-details-are-saved-into-my-account-user-info-disclosure-vulnerability-in-practo-fe36930a1246
+2018-03-25	-	#BugBounty — Rewarded by securing vulnerabilities in Bookmyshow (India’s largest online movie & event booking portal)	https://medium.com/@logicbomb_1/bugbounty-rewarded-by-securing-vulnerabilities-in-bookmyshow-indias-largest-online-movie-bb81dba9b82
+2018-03-09	-	Getting any Facebook user's friend list and partial payment card details	https://www.josipfranjkovic.com/blog/facebook-friendlist-paymentcard-leak
+2018-02-24	1,500	How I was able to delete any image in Facebook community question forum	https://medium.com/@JubaBaghdad/how-i-was-able-to-delete-any-image-in-facebook-community-question-forum-a03ea516e327
+2018-02-22	-	Modifying any Ad Space and Placement	https://medium.com/@joshuaregio/modifying-any-ad-space-and-placement-e22c7cec050f
+2018-02-07	-	Taking over Facebook accounts using Free Basics partner portal	https://www.josipfranjkovic.com/blog/facebook-partners-portal-account-takeover
+2018-02-05	-	How I found IDOR on Twitter’s Acquisition – Mopub.com	https://blog.securitybreached.org/2018/02/05/how-i-found-idor-on-twitters-acquisition-mopub-com/
+2018-02-03	3,000	Hunting Insecure Direct Object Reference Vulnerabilities for Fun and Profit (PART-1)	https://codeburst.io/hunting-insecure-direct-object-reference-vulnerabilities-for-fun-and-profit-part-1-f338c6a52782
+2018-01-27	450	How I was able to Download Any file from Web server!	https://blog.securitybreached.org/2018/01/27/how-i-was-able-to-download-any-file-from-web-server/
+2018-01-15	-	View the bug subscriptions for any Oculus User	https://philippeharewood.com/view-the-bug-subscriptions-for-any-oculus-user/
+2018-01-10	-	#BugBounty — How I was able to read chat of users in an Online travel portal	https://medium.com/bugbountywriteup/bugbounty-how-i-was-able-to-read-chat-of-users-in-an-online-travel-portal-c55a1787f999
+2018-01-04	3,000	Hunting Insecure Direct Object Reference Vulnerabilities for Fun and Profit (PART-1)	https://blog.securitybreached.org/2018/02/04/hunting-insecure-direct-object-reference-vulnerabilities-for-fun-and-profit-part-1/
+2018-01-02	1,000	Abusing internal API to achieve IDOR in New Relic	https://www.jonbottarini.com/2018/01/02/abusing-internal-api-to-achieve-idor-in-new-relic/
+2017-11-25	10,000	Image removal vulnerability in Facebook polling feature	https://blog.darabi.me/2017/11/image-removal-vulnerability-in-facebook.html
+2017-11-15	-	How I Pwned a company using IDOR & Blind XSS	https://www.ansariosama.com/2017/11/how-i-pwned-company-using-idor-blind-xss.html
+2017-10-29	-	Abusing new Claps feature in Medium	https://medium.com/bugbountywriteup/abusing-new-claps-feature-in-medium-6bd8757a64a4
+2017-10-18	-	Taking over every Ad on OLX (automated), an IDOR story	https://kciredor.com/taking-over-every-ad-on-olx-automated-an-idor-story.html
+2017-10-06	-	How I Was Able To View Private Tweets Of Any Private Twitter Account	https://medium.com/secjuice/how-i-was-able-to-view-private-tweets-of-any-private-twitter-account-86a9d2640ded
+2017-09-21	-	IDOR – Execute JavaScript into anyone account	https://guptashubham.com/idor-execute-javascript-into-anyone-account/
+2017-09-20	-	All About Hackerone Private Program Terapeak	https://guptashubham.com/all-about-hackerone-private-program-terapeak/
+2017-09-02	-	IDOR on HackerOne Hacker Review “What Program Say”	https://medium.com/japzdivino/idor-on-hackerone-hacker-review-what-program-say-885ce3989a6f
+2017-08-30	-	Developer Luminate IDOR	https://medium.com/@rojanrijal/developer-luminate-idor-42bd0d98e0c
+2017-08-30	-	Improper Storage of Private Project’s Files	https://medium.com/@arbazhussain/improper-storage-of-protected-projects-files-9ece8e9a4743
+2017-08-11	2,000	Insecure Direct Object Reference In Facebook Events	https://medium.com/@armaanpathan/idor-was-leading-to-privilege-escalation-and-violating-the-facebook-policy-355c67c654e6
+2017-07-18	-	IDOR While Connecting Social Account in Hackster.io	https://medium.com/@arbazhussain/idor-while-connecting-social-account-in-hackster-io-2296b316b7a7
+2017-07-13	-	Hey UserID x, what’s your secret token? Broken API enables me to leak/modify any users personal information	https://zseano.medium.com/fun-with-mobile-apps-broken-api-leads-to-leak-of-millions-of-personal-information-e7eb0b9dcce7
+2017-07-08	4,250	How a simple IDOR become a $4K User Impersonation vulnerability	https://shahmeeramir.com/how-a-simple-idor-become-a-4k-user-impersonation-vulnerability-705291b55c0d
+2017-06-19	-	How I hacked 23.900.000 tumblr domains at once :)	https://web.archive.org/web/20170620023433/https://medium.com/@know.0nix/how-i-hack-23-900-000-tumblr-domains-at-once-341edad6e7cc
+2017-03-31	-	Airbnb – Web to App Phone Notification IDOR to view Everyone’s Airbnb Messages	https://buer.haus/2017/03/31/airbnb-web-to-app-phone-notification-idor-to-view-everyones-airbnb-messages/
+2017-02-25	-	One company: 262 bugs, 100% acceptance, 2.57 priority, millions of user details saved.	https://medium.com/@sean.roesner/one-company-262-bugs-100-acceptance-2-57-priority-300million-user-details-saved-dd88ecb10f6f
+2017-01-28	-	How I could have compromised any account on one of the biggest startup based in California	https://medium.com/@prateek_0490/how-i-could-have-compromised-any-account-on-one-of-the-biggest-startup-based-in-california-3ebc8c6844b5
+2016-12-11	-	IDOR in Facebook's Acquisition (Parse)	http://www.pranav-venkat.com/2016/12/idor-in-facebooks-acquisition-parse.html
+2016-06-24	18,000	Uber Hacking: How we found out who you are, where you are and where you went	https://medium.com/@r0t1v/uber-hacking-how-we-found-out-who-you-are-where-you-are-and-where-you-went-1e0769674535
+2016-03-27	5,000	How I Could Compromise 4% (Locked) Instagram Accounts	https://www.arneswinnen.net/2016/03/how-i-could-compromise-4-locked-instagram-accounts
+2015-12-31	-	Leaking API keys in Bing Maps Portal	https://medium.com/bugbountywriteup/how-i-got-listed-in-microsoft-hall-of-fame-8f96ca4535c2
+2015-07-13	-	The easiest bug bounties I have ever won	https://josipfranjkovic.blogspot.com/2015/07/the-easiest-bug-bounties-i-have-ever-won.html
+2015-06-04	-	[Responsible disclosure] How I could have hacked 62.5 million Zomato Users	https://web.archive.org/web/20200313201545/http://www.anandpraka.sh/2015/06/how-i-hacked-zomatocom-to-see-data-of.html
+2015-01-16	-	vimeo IDOR ( buying pro membership & ondemand videos for 0.1$ )	http://nbsriharsha.blogspot.com/2015/01/vimeo-buying-pro-membership-ondemand.html
+2014-08-31	30,000	Popping a shell on the Oculus developer portal	https://bitquark.co.uk/blog/2014/08/31/popping_a_shell_on_the_oculus_developer_portal
+2013-09-01	12,500	Delete any Photo from Facebook by Exploiting Support Dashboard - $12,500 Bug	https://arulkumar.in/delete-any-photo-from-facebook-by-exploiting-support-dashboard
+2013-07-23	-	How I found my way into Instagram's Ganglia, and a bug with Facebook likes.	https://josipfranjkovic.blogspot.com/2013/07/how-i-found-my-way-into-instagrams.html

