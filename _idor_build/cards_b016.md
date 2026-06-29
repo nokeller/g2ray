@@ -1,0 +1,8 @@
+### [80] Defeat client-side E2E encryption to reach IDOR + SSRF (decompile APK for an unobfuscated twin; breakpoint `encrypt()`; DevTools Overrides proxy) — Asem Eleraky [NEW ★★ encryption-bypass methodology]
+- Where: app encrypts every request body (`{v,iv,keys,cipher}`, with `v="pef2"` fixed); real params are hidden.
+- Approach/how-found:
+  1. encryption is client-side → it lives in the JS. The web JS was obfuscated, so he decompiled the **Android app** (apktool) → `index.android.bundle` was NOT obfuscated and contained `pef2` inside an `encrypt()` function → harvested symbol names (`getBytesSync`, `RSA-OAEP`, `encrypt`).
+  2. searched those names in the web JS → set a **breakpoint on `encrypt()`** → read its argument = the plaintext body → `/v1/user` with `domain`+`user` → swap `user` = IDOR (read/edit any user's email/phone); the `url` field = SSRF (point to collaborator).
+  3. generalized: with no APK, use **Event Listener Breakpoints → click** and step-over to find the body-builder; to test at scale, use **DevTools Overrides** to replace the JS with an edited copy that pipes the body through a local PHP proxy (`editBeforeSend()`), so you can edit cleartext in Burp *before* it's encrypted.
+- Test: encrypted/opaque request bodies are not a wall — the encryptor is in the client. Find an unobfuscated twin (Android `index.android.bundle`, source maps, archived JS), breakpoint the encrypt function to read/modify plaintext, or override the JS to insert a proxy hook; then run normal IDOR/SSRF on the decrypted params.
+- Q: "Where is the client-side encrypt function (web JS / Android bundle / source map)? Can I breakpoint it or override the file to edit the plaintext body before encryption, then swap ids / aim `url` fields at a collaborator?"
