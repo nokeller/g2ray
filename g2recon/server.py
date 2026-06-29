@@ -7,12 +7,15 @@ import hashlib
 import hmac
 import io
 import json
+import os
+import tempfile
 import time
 import zipfile
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, UploadFile, File, Form, Body
+from starlette.background import BackgroundTask
 from fastapi.responses import (JSONResponse, HTMLResponse, FileResponse,
                                StreamingResponse, PlainTextResponse, RedirectResponse)
 from fastapi.staticfiles import StaticFiles
@@ -21,19 +24,28 @@ from sqlalchemy import select, func, delete, or_
 from . import config, store, util
 from .config import SETTINGS, save_settings, hash_password, verify_password, WORDLIST_DIR
 from .db import (init_db, get_session, Target, Subdomain, Url, FileRecord, JsLink,
-                 Secret, Param, Reflection, OpenRedirect, LiveResult, FuzzResult, Job, JobLog)
+                 Secret, Param, Reflection, OpenRedirect, LiveResult, FuzzResult,
+                 Endpoint, Job, JobLog)
 from .http_client import get_client
 from .worker import get_manager
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 COOKIE = "g2r_session"
 
-app = FastAPI(title="g2recon", version="1.1.0")
+app = FastAPI(title="g2recon", version="1.2.0")
 
 
 @app.on_event("startup")
 def _startup():
     init_db()
+    # clear phantom 'running'/'queued' jobs left by a previous process
+    s = get_session()
+    try:
+        n = store.reset_orphan_jobs(s)
+        if n:
+            print(f"[g2recon] reset {n} orphaned job(s) on startup")
+    finally:
+        s.close()
     get_manager()
 
 
@@ -144,10 +156,27 @@ async def update_settings(body: dict = Body(...), user: str = Depends(require_au
                 "wayback_from_year", "wayback_to_year", "download_workers",
                 "check_workers", "fuzz_workers", "request_delay_ms",
                 "max_files_per_target", "max_concurrent_jobs",
-                "use_proxy_only_on_block"):
+                "use_proxy_only_on_block", "block_cooldown_sec",
+                "archive_engine", "waymore_processes", "waymore_req_timeout",
+                "waymore_run_timeout", "waymore_limit_requests",
+                "waymore_include_subs", "waymore_use_proxy", "archive_timetravel",
+                "max_snapshots_per_url", "wayback_max_urls", "download_batch"):
         if key in body:
             setattr(SETTINGS, key, body[key])
             changed = True
+    # api keys: only update when a real (non-masked, non-empty) value is sent
+    for key in ("urlscan_api_key", "otx_api_key", "virustotal_api_key",
+                "intelx_api_key"):
+        if key in body:
+            val = (body[key] or "").strip()
+            if val and "…" not in val:
+                setattr(SETTINGS, key, val)
+                changed = True
+            elif val == "":
+                # explicit empty string clears the key
+                if body.get("_clear_keys"):
+                    setattr(SETTINGS, key, "")
+                    changed = True
     if body.get("new_password"):
         SETTINGS.admin_password_hash = hash_password(body["new_password"])
         changed = True
@@ -220,7 +249,7 @@ async def delete_target(tid: int, user: str = Depends(require_auth)):
         s.close()
         raise HTTPException(404, "not found")
     for model in (Subdomain, Url, FileRecord, JsLink, Secret, Param, Reflection,
-                  OpenRedirect, LiveResult, FuzzResult, JobLog, Job):
+                  OpenRedirect, LiveResult, FuzzResult, Endpoint, JobLog, Job):
         s.execute(delete(model).where(model.target_id == tid))
     slug = t.slug
     s.delete(t)
@@ -398,6 +427,25 @@ async def d_fuzz(tid: int, q: str = "", limit: int = 200, offset: int = 0,
     s.close(); return r
 
 
+@app.get("/api/targets/{tid}/endpoints")
+async def d_endpoints(tid: int, q: str = "", status: int = 0, method: str = "",
+                      inferred: int = -1, limit: int = 200, offset: int = 0,
+                      user: str = Depends(require_auth)):
+    s = get_session()
+    filters = []
+    if status:
+        filters.append(Endpoint.status_code == status)
+    if method:
+        filters.append(Endpoint.method == method.upper())
+    if inferred in (0, 1):
+        filters.append(Endpoint.host_inferred == bool(inferred))
+    r = list_response(s, Endpoint, tid, filters=filters,
+                      search_cols=[Endpoint.url, Endpoint.path, Endpoint.source_file],
+                      q=q, limit=limit, offset=offset,
+                      order_col=Endpoint.status_code, order_desc=False)
+    s.close(); return r
+
+
 # --------------------------------------------------------------------------
 # exports + downloads
 # --------------------------------------------------------------------------
@@ -405,6 +453,7 @@ _EXPORT_MODELS = {
     "subdomains": Subdomain, "urls": Url, "files": FileRecord, "jslinks": JsLink,
     "secrets": Secret, "params": Param, "reflections": Reflection,
     "openredirects": OpenRedirect, "live": LiveResult, "fuzz": FuzzResult,
+    "endpoints": Endpoint,
 }
 
 
@@ -413,17 +462,28 @@ async def export_csv(tid: int, kind: str, user: str = Depends(require_auth)):
     model = _EXPORT_MODELS.get(kind)
     if not model:
         raise HTTPException(404, "unknown export")
-    s = get_session()
-    rows = s.execute(select(model).where(model.target_id == tid)).scalars().all()
     cols = [c.name for c in model.__table__.columns]
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(cols)
-    for r in rows:
-        w.writerow([getattr(r, c) for c in cols])
-    s.close()
-    buf.seek(0)
-    return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv",
+
+    def gen():
+        # stream row-by-row: the urls export is millions of rows / hundreds of MB,
+        # so buffering the whole CSV in memory OOMs the server and stalls clients.
+        s = get_session()
+        try:
+            buf = io.StringIO()
+            w = csv.writer(buf)
+            w.writerow(cols)
+            yield buf.getvalue()
+            result = s.execute(
+                select(model).where(model.target_id == tid)
+                .execution_options(stream_results=True, yield_per=2000))
+            for r in result.scalars():
+                buf.seek(0); buf.truncate(0)
+                w.writerow([getattr(r, c) for c in cols])
+                yield buf.getvalue()
+        finally:
+            s.close()
+
+    return StreamingResponse(gen(), media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{kind}_{tid}.csv"'})
 
 
@@ -460,14 +520,20 @@ async def target_zip(tid: int, user: str = Depends(require_auth)):
     if not t:
         raise HTTPException(404, "not found")
     base = Path(SETTINGS.data_dir) / "targets" / t.slug
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in base.rglob("*"):
-            if f.is_file():
-                z.write(f, f.relative_to(base))
-    buf.seek(0)
-    return StreamingResponse(iter([buf.getvalue()]), media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{t.slug}_recon.zip"'})
+    # build to a temp FILE (not memory): a target dir can be many GB (491MB+
+    # urls.txt plus thousands of downloaded files), which would OOM if buffered.
+    tmp = tempfile.NamedTemporaryFile(prefix=f"{t.slug}_recon_", suffix=".zip",
+                                      delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as z:
+        if base.exists():
+            for f in base.rglob("*"):
+                if f.is_file():
+                    z.write(f, f.relative_to(base))
+    return FileResponse(tmp_path, media_type="application/zip",
+        filename=f"{t.slug}_recon.zip",
+        background=BackgroundTask(lambda: os.path.exists(tmp_path) and os.remove(tmp_path)))
 
 
 # --------------------------------------------------------------------------

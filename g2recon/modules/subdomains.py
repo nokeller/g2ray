@@ -48,10 +48,19 @@ def from_subindex_import(text: str, root: str) -> set[str]:
 def from_crtsh(root: str, client: HttpClient, log: LogFn) -> set[str]:
     out: set[str] = set()
     url = f"https://crt.sh/?q=%25.{root}&output=json"
-    r = client.get(url, timeout=40)
-    if not r.ok or not r.text:
-        log("warn", f"crt.sh returned status={r.status} {r.waf.reason}")
-        return out
+    import time as _t
+    r = None
+    for attempt in range(4):
+        # crt.sh frequently 502/503s; retry with backoff and escalate to proxy
+        r = client.get(url, timeout=60, force_proxy=(attempt >= 2), max_proxy_tries=1)
+        if r.ok and r.text.strip():
+            break
+        _t.sleep(min(2 ** attempt, 8))
+    if r is None or not r.ok or not r.text:
+        log("warn", f"crt.sh returned status={getattr(r,'status',0)} "
+                    f"{getattr(getattr(r,'waf',None),'reason','')} (after retries) "
+                    f"-> falling back to certspotter")
+        return from_certspotter(root, client, log)
     data = None
     try:
         data = json.loads(r.text)
@@ -76,6 +85,43 @@ def from_crtsh(root: str, client: HttpClient, log: LogFn) -> set[str]:
     return out
 
 
+def from_certspotter(root: str, client: HttpClient, log: LogFn) -> set[str]:
+    """SSLMate certspotter CT log — reliable from datacenter IPs when crt.sh 502s.
+    Free tier works without a key (rate-limited); honours an optional key."""
+    out: set[str] = set()
+    from ..config import SETTINGS
+    headers = {}
+    key = getattr(SETTINGS, "certspotter_api_key", "") or ""
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    url = (f"https://api.certspotter.com/v1/issuances?domain={root}"
+           f"&include_subdomains=true&expand=dns_names")
+    import time as _t
+    r = None
+    for attempt in range(3):
+        r = client.get(url, timeout=45, headers=headers,
+                       force_proxy=(attempt >= 1), max_proxy_tries=1)
+        if r.ok and r.text.strip():
+            break
+        _t.sleep(min(2 ** attempt, 6))
+    if r is None or not r.ok or not r.text:
+        log("warn", f"certspotter status={getattr(r,'status',0)} (after retries)")
+        return out
+    try:
+        data = json.loads(r.text)
+        for row in data or []:
+            for h in (row.get("dns_names") or []):
+                h = h.strip().lstrip("*.").lower()
+                if util.in_scope(h, root):
+                    out.add(h)
+    except Exception:
+        for m in re.finditer(r'"([a-z0-9_*.-]+\.' + re.escape(root) + r')"', r.text, re.I):
+            h = m.group(1).strip().lstrip("*.").lower()
+            if util.in_scope(h, root):
+                out.add(h)
+    return out
+
+
 def from_subfinder(root: str, log: LogFn) -> set[str]:
     if not shutil.which("subfinder"):
         log("info", "subfinder not installed - skipping")
@@ -93,11 +139,23 @@ def from_subfinder(root: str, log: LogFn) -> set[str]:
 
 def from_wayback(root: str, client: HttpClient, log: LogFn) -> set[str]:
     out: set[str] = set()
+    # bounded + fast-fail: archive.org stalls the heavy *.domain/* wildcard from
+    # datacenter IPs. We keep it light and escalate to proxy; the main archive
+    # step's backfill_subdomains covers every host from the full URL harvest
+    # anyway, so this source is best-effort.
     url = (f"https://web.archive.org/cdx/search/cdx?url=*.{root}/*"
-           f"&output=text&fl=original&collapse=urlkey&limit=200000")
-    r = client.get(url, timeout=60)
-    if not r.ok:
-        log("warn", f"wayback host pull status={r.status} {r.waf.reason}")
+           f"&output=text&fl=original&collapse=urlkey&limit=40000")
+    import time as _t
+    r = None
+    for attempt in range(3):
+        r = client.get(url, timeout=(25 if attempt == 0 else 45),
+                       force_proxy=(attempt >= 1), max_proxy_tries=1)
+        if r.ok and r.text.strip():
+            break
+        _t.sleep(min(2 ** attempt, 6))
+    if r is None or not r.ok:
+        log("warn", f"wayback host pull status={getattr(r,'status',0)} "
+                    f"{getattr(getattr(r,'waf',None),'reason','')} (backfill covers this)")
         return out
     for line in r.text.splitlines():
         h = util.host_of(line.strip())
@@ -108,8 +166,12 @@ def from_wayback(root: str, client: HttpClient, log: LogFn) -> set[str]:
 
 def from_otx(root: str, client: HttpClient, log: LogFn) -> set[str]:
     out: set[str] = set()
+    from ..config import SETTINGS
+    headers = {}
+    if SETTINGS.otx_api_key:
+        headers["X-OTX-API-KEY"] = SETTINGS.otx_api_key
     url = f"https://otx.alienvault.com/api/v1/indicators/domain/{root}/passive_dns"
-    r = client.get(url, timeout=40)
+    r = client.get(url, timeout=40, headers=headers) if headers else client.get(url, timeout=40)
     if not r.ok:
         return out
     try:
@@ -149,6 +211,7 @@ def from_rapiddns(root: str, client: HttpClient, log: LogFn) -> set[str]:
 
 SOURCES = {
     "crtsh": from_crtsh,
+    "certspotter": from_certspotter,
     "subfinder": lambda root, client, log: from_subfinder(root, log),
     "wayback": from_wayback,
     "otx": from_otx,

@@ -19,6 +19,27 @@ from ..http_client import HttpClient
 LogFn = Callable[[str, str], None]
 
 CANARY = "g2r-oob.example"   # we never visit it; we only look for it in sinks
+_CANARY_HOST_RE = re.compile(
+    r"(?:^|[\"'\s])(?:https?:)?[/\\]{1,3}(?:[^/\\?#\s]*@)?"
+    r"((?:[a-z0-9-]+\.)*" + re.escape(CANARY) + r")(?:[:/\\?#\"'\s]|$)", re.I)
+
+
+def _redirects_to_canary(loc: str) -> bool:
+    """True only when *loc* actually navigates to the canary host (not merely
+    echoes it inside a query/param of an otherwise-legit destination).
+
+    Browsers treat ``\\`` as ``/`` and collapse leading slashes, so we normalise
+    and extract the destination authority, then require it to be the canary host
+    (or a sub-label of it, e.g. ``localhost.g2r-oob.example``).
+    """
+    if not loc:
+        return False
+    s = loc.strip().replace("\\", "/")
+    m = re.match(r"^(?:https?:)?/+(?:[^/?#]*@)?([^/?#:]+)", s, re.I)
+    if not m:
+        return False
+    host = m.group(1).lower()
+    return host == CANARY or host.endswith("." + CANARY)
 REDIRECT_PARAMS = {
     "url", "redirect", "redirect_uri", "redirect_url", "redirecturl", "return",
     "returnurl", "return_url", "returnto", "return_to", "next", "dest",
@@ -56,13 +77,16 @@ class OpenRedirectScanner:
         loc = r.headers.get("location", "") or r.headers.get("Location", "")
         hit = False
         evidence = ""
-        if loc and (CANARY in loc):
+        if loc and _redirects_to_canary(loc):
             hit, evidence = True, f"Location: {loc[:200]}"
         elif r.text:
-            # meta refresh / JS location sinks
-            if re.search(r"(?i)(http-equiv=['\"]?refresh|location\.(href|replace|assign)|window\.location)"
-                         r"[^>]{0,80}" + re.escape(CANARY), r.text):
-                hit, evidence = True, "client-side redirect sink to canary"
+            # client-side sink that navigates TO the canary host (require the
+            # canary to be the redirect target, not just present in the body)
+            if re.search(r"(?i)(?:location\.(?:href|replace|assign)|window\.location"
+                         r"|http-equiv=['\"]?refresh[^>]{0,40}url=)\s*[=:(]?\s*"
+                         r"['\"]?(?:https?:)?[/\\]{1,3}(?:[a-z0-9-]+\.)*"
+                         + re.escape(CANARY), r.text):
+                hit, evidence = True, "client-side redirect sink to canary host"
         if hit:
             return {"url": url, "param": param, "payload": payload,
                     "location": evidence, "status_code": r.status}
