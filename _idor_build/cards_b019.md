@@ -1,0 +1,11 @@
+### [86] SSO leaks 15k doctors' password hashes — `admin.js` reveals `/api/v1/user/admin`, swap to `/api/v1/user/<id>` (unauth IDOR) — Jonathan Bouman [NEW ★ JS reveals user endpoint + unauth id-swap leaks hashes]
+- Where: `hawebsso.nl` SSO; the login page loaded `admin.js` referencing `GET /api/v1/user/admin`.
+- Approach/how-found: read the login page source → `admin.js` exposed an admin role endpoint. Hitting `/api/v1/user/admin` returned *his own* full record incl. password hash; swapping `admin`→a numeric id (`/api/v1/user/15000`) returned any enrolled user's details + hash → IDOR over 15k GPs. Worse, it needed **no authentication** (works in incognito) = Missing Auth. Recon: OpenID `.well-known` for scopes, response headers (IIS), Assetnote wordlists (which include `/api/v1/user/<id>`), LinkFinder for JS endpoints. (Hashes were ASP.NET Identity PBKDF2 → not cracked.)
+- Test: read every JS file (esp. `admin*.js`) for privileged endpoints; a generic `/api/v1/user/<id>` is wordlist-discoverable — test it authed AND unauthenticated; check OpenID `.well-known` for scopes/claims.
+- Q: "Does a JS file name a user/admin endpoint? Does `/api/v1/user/<id>` return other users' data — and does it even require auth?"
+
+### [87] Fintech reward abuse — video-% spoof + questionnaire response leaks the correct answer + brute non-existent tutorial ids still award coins — 0x4KD [NEW: reward/BOLA logic + answer-in-response + missing existence check]
+- Where: learn-to-earn coins; a request reports video watch %, then a questionnaire (with answers) is fetched, then answers submitted for coins.
+- Approach/how-found: set watch % to 100 → questionnaire unlocked without watching; the questionnaire fetch response **included the correct answer** → submit it → coins. Automated by brute-forcing tutorial ids 1..10000 — even non-existent ids (`99999999`) awarded coins; no throttling (1000 concurrent) → ~1,000,000 coins.
+- Test: for reward/earn flows, check if the server returns the correct answer/secret, if progress is client-asserted (watch %), and whether actions on non-existent/arbitrary object ids still grant value; hammer for missing rate limits.
+- Q: "Does the response leak the correct answer/secret? Is completion client-asserted? Do rewards trigger for arbitrary or non-existent object ids, with no throttle?"
