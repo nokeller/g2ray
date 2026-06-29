@@ -28,8 +28,12 @@ LogFn = Callable[[str, str], None]
 
 DEFAULT_EXTS = ["js", "json", "map", "txt", "xml", "config", "cfg", "env",
                 "bak", "old", "yml", "yaml"]
+# bulk content-discovery probes use a short timeout: a flaky/slow host should
+# fast-fail (and trip the client's per-host circuit breaker) rather than stall
+# the sweep on the full 25s default for every dead filename.
+FUZZ_TIMEOUT = 8
 RECORD_STATUS = {200, 201, 202, 203, 204, 206, 301, 302, 307, 308,
-                 401, 403, 405, 500, 501, 503}
+                 401, 403, 405}
 
 
 def base_dir_of(url: str) -> str:
@@ -56,14 +60,14 @@ class Fuzzer:
         bl: dict[str, tuple[int, int]] = {}
         for ext in self.exts:
             u = f"{base}{_rand()}.{ext}"
-            r = self.client.get(u, allow_redirects=False)
+            r = self.client.get(u, allow_redirects=False, timeout=FUZZ_TIMEOUT)
             bl[ext] = (r.status, len(r.content))
         return bl
 
     def _probe(self, base: str, word: str, ext: str,
                baseline: tuple[int, int]) -> dict | None:
         url = f"{base}{word}.{ext}"
-        r = self.client.get(url, allow_redirects=False)
+        r = self.client.get(url, allow_redirects=False, timeout=FUZZ_TIMEOUT)
         if r.error:
             return None
         if r.status == 404 or r.status not in RECORD_STATUS:
@@ -95,6 +99,7 @@ class Fuzzer:
             except Exception:
                 baseline = {e: (0, 0) for e in self.exts}
             jobs = [(w, e) for w in words for e in self.exts]
+            dir_hits: list[dict] = []
             with ThreadPoolExecutor(max_workers=workers) as ex:
                 futs = {ex.submit(self._probe, base, w, e, baseline.get(e, (0, 0))): (w, e)
                         for (w, e) in jobs}
@@ -106,8 +111,17 @@ class Fuzzer:
                     except Exception:
                         res = None
                     if res:
-                        persist(res)
-                        count += 1
+                        dir_hits.append(res)
+            # drop systematic responses: a (status,length) returned for many
+            # distinct filenames is a generic error/redirect/SPA page (e.g. a
+            # 500 served via proxy), not real discovered content.
+            from collections import Counter
+            sig_count = Counter((h["status_code"], h["length"]) for h in dir_hits)
+            for h in dir_hits:
+                if sig_count[(h["status_code"], h["length"])] >= 5:
+                    continue
+                persist(h)
+                count += 1
             log("info", f"fuzz {base}: {count} hits so far")
         log("info", f"fuzz: {count} total hits")
         return count

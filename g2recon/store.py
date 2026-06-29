@@ -7,7 +7,8 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from .db import (
     get_session, Target, Subdomain, Url, FileRecord, JsLink, Secret, Param,
-    Reflection, OpenRedirect, LiveResult, FuzzResult, Job, JobLog, Setting,
+    Reflection, OpenRedirect, LiveResult, FuzzResult, Endpoint, Job, JobLog, Setting,
+    Takeover, CorsFinding,
 )
 
 
@@ -51,12 +52,14 @@ def add_file(session, target_id: int, rec: dict) -> int:
            "archive_ts": rec.get("archive_ts", ""), "path": rec.get("path", ""),
            "size": rec.get("size", 0), "sha256": rec.get("sha256", ""),
            "status_code": rec.get("status_code", 0),
-           "content_type": rec.get("content_type", ""), "depth": rec.get("depth", 0)}
+           "content_type": rec.get("content_type", ""), "depth": rec.get("depth", 0),
+           "analyzed": bool(rec.get("analyzed", False))}
     stmt = sqlite_insert(FileRecord).values(**row).on_conflict_do_update(
         index_elements=["target_id", "url", "variant", "archive_ts"],
         set_={"status_code": row["status_code"], "size": row["size"],
               "sha256": row["sha256"], "path": row["path"],
-              "content_type": row["content_type"], "parent_url": row["parent_url"]})
+              "content_type": row["content_type"], "parent_url": row["parent_url"],
+              "analyzed": row["analyzed"]})
     session.execute(stmt)
     session.commit()
     return 1
@@ -114,7 +117,83 @@ def add_fuzzresult(session, target_id: int, rec: dict) -> int:
                           ["target_id", "found_url"])
 
 
+def add_endpoint(session, target_id: int, rec: dict) -> int:
+    row = {
+        "target_id": target_id, "url": rec["url"], "method": rec.get("method", "GET"),
+        "path": rec.get("path", ""), "host": rec.get("host", ""),
+        "source_file": rec.get("source_file", ""),
+        "status_code": rec.get("status_code", 0),
+        "content_type": rec.get("content_type", ""),
+        "content_length": rec.get("content_length", 0),
+        "title": rec.get("title", ""), "allow": rec.get("allow", ""),
+        "host_inferred": bool(rec.get("host_inferred", False)),
+        "via_proxy": bool(rec.get("via_proxy", False)),
+    }
+    stmt = sqlite_insert(Endpoint).values(**row).on_conflict_do_update(
+        index_elements=["target_id", "url", "method"],
+        set_={"status_code": row["status_code"], "content_type": row["content_type"],
+              "content_length": row["content_length"], "title": row["title"],
+              "allow": row["allow"], "source_file": row["source_file"],
+              "host_inferred": row["host_inferred"], "via_proxy": row["via_proxy"]})
+    session.execute(stmt)
+    session.commit()
+    return 1
+
+
+def add_takeover(session, target_id: int, rec: dict) -> int:
+    row = {"target_id": target_id, "host": rec["host"], "cname": rec.get("cname", ""),
+           "a_record": rec.get("a_record", ""), "provider": rec.get("provider", ""),
+           "status": rec.get("status", "claimed"), "severity": rec.get("severity", "info"),
+           "evidence": rec.get("evidence", "")}
+    stmt = sqlite_insert(Takeover).values(**row).on_conflict_do_update(
+        index_elements=["target_id", "host"],
+        set_={"cname": row["cname"], "a_record": row["a_record"],
+              "provider": row["provider"], "status": row["status"],
+              "severity": row["severity"], "evidence": row["evidence"]})
+    session.execute(stmt)
+    session.commit()
+    return 1
+
+
+def add_corsfinding(session, target_id: int, rec: dict) -> int:
+    row = {"target_id": target_id, "url": rec["url"], "host": rec.get("host", ""),
+           "origin_reflected": bool(rec.get("origin_reflected", False)),
+           "acao": rec.get("acao", ""), "acac": bool(rec.get("acac", False)),
+           "set_cookie": bool(rec.get("set_cookie", False)),
+           "severity": rec.get("severity", "info"), "note": rec.get("note", ""),
+           "status_code": rec.get("status_code", 0)}
+    stmt = sqlite_insert(CorsFinding).values(**row).on_conflict_do_update(
+        index_elements=["target_id", "url"],
+        set_={"host": row["host"], "origin_reflected": row["origin_reflected"],
+              "acao": row["acao"], "acac": row["acac"], "set_cookie": row["set_cookie"],
+              "severity": row["severity"], "note": row["note"],
+              "status_code": row["status_code"]})
+    session.execute(stmt)
+    session.commit()
+    return 1
+
+
 # ---------- job + log ----------
+def reset_orphan_jobs(session) -> int:
+    """On startup, any job still 'running'/'queued' has no live thread behind it
+    (the process restarted). Mark them stopped and their targets idle so the UI
+    doesn't show a phantom run forever."""
+    from sqlalchemy import update
+    orphans = session.execute(
+        select(Job.id, Job.target_id).where(Job.status.in_(["running", "queued"]))).all()
+    if not orphans:
+        return 0
+    tids = {t for (_, t) in orphans}
+    session.execute(update(Job).where(Job.status.in_(["running", "queued"]))
+                    .values(status="stopped", detail="reset on restart"))
+    for tid in tids:
+        t = session.get(Target, tid)
+        if t and t.status in ("running", "queued"):
+            t.status = "stopped"
+    session.commit()
+    return len(orphans)
+
+
 def log(session, job_id: int, target_id: int, level: str, step: str, message: str):
     session.add(JobLog(job_id=job_id, target_id=target_id, level=level,
                        step=step, message=message[:2000]))
@@ -148,4 +227,9 @@ def counts(session, target_id: int) -> dict:
         "openredirects": c(OpenRedirect),
         "live": c(LiveResult),
         "fuzz": c(FuzzResult),
+        "endpoints": c(Endpoint),
+        "takeovers": c(Takeover),
+        "takeovers_vuln": c(Takeover, Takeover.status.in_(("vulnerable", "dangling"))),
+        "cors": c(CorsFinding),
+        "cors_high": c(CorsFinding, CorsFinding.severity.in_(("high", "medium"))),
     }

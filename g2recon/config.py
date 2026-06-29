@@ -54,11 +54,33 @@ class Settings:
     # list of "host:port:user:pass" or "scheme://user:pass@host:port"
     proxies: list[str] = field(default_factory=list)
     use_proxy_only_on_block: bool = True   # proxyless first, operator-provided proxy on block/rate-limit
+    # once a host blocks the direct IP, route it through proxies for this long
+    # before re-testing the direct IP again (auto-recovers when the ban lifts)
+    block_cooldown_sec: int = 300
 
-    # wayback
-    wayback_batch_size: int = 5000
-    wayback_from_year: int = 2020
+    # api keys (passive sources / waymore). NEVER committed; live in data/config.json
+    urlscan_api_key: str = ""
+    otx_api_key: str = ""
+    virustotal_api_key: str = ""
+    intelx_api_key: str = ""
+
+    # archive harvesting
+    archive_engine: str = "both"           # both | cdx | waymore
+    waymore_processes: int = 5             # waymore -p (must be 1..5)
+    waymore_req_timeout: int = 15          # waymore -t (per request)
+    waymore_run_timeout: int = 0           # overall wall-clock cap (0 == 2400s default)
+    waymore_limit_requests: int = 0        # waymore -l (0 == no limit)
+    waymore_include_subs: bool = True      # pass root only (gets all subs); False adds -n
+    waymore_use_proxy: bool = True         # route waymore via proxy (Common Crawl needs it)
+    archive_timetravel: bool = True        # download every unique-digest archived capture
+    max_snapshots_per_url: int = 25        # cap captures/file (0 == all unique digests)
+
+    # wayback (domain-wide CDX resumeKey harvest = the reliable archive backbone)
+    wayback_batch_size: int = 50000        # urls per CDX page (resumeKey paginated)
+    wayback_from_year: int = 0             # 0 == all time (max coverage)
     wayback_to_year: int = 0               # 0 == current year
+    wayback_max_urls: int = 0              # 0 == harvest every url (no cap)
+    download_batch: int = 2000             # file downloads per scheduling batch
 
     # concurrency
     download_workers: int = 8
@@ -77,6 +99,12 @@ class Settings:
         # never leak full proxy creds to the UI; show masked
         d["proxies"] = [mask_proxy(p) for p in self.proxies]
         d["proxy_count"] = len(self.proxies)
+        # never leak api keys; only report whether they are set (+ a short hint)
+        for key in ("urlscan_api_key", "otx_api_key", "virustotal_api_key",
+                    "intelx_api_key"):
+            val = d.pop(key, "") or ""
+            d[key + "_set"] = bool(val)
+            d[key + "_hint"] = (val[:4] + "…" + val[-2:]) if len(val) > 8 else ""
         return d
 
 
@@ -127,6 +155,14 @@ def load_settings() -> Settings:
     if os.environ.get("G2RECON_ADMIN_PASSWORD"):
         s.admin_password_hash = hash_password(os.environ["G2RECON_ADMIN_PASSWORD"])
         changed = True
+    # api keys via env (optional)
+    for env, attr in (("G2RECON_URLSCAN_KEY", "urlscan_api_key"),
+                      ("G2RECON_OTX_KEY", "otx_api_key"),
+                      ("G2RECON_VIRUSTOTAL_KEY", "virustotal_api_key"),
+                      ("G2RECON_INTELX_KEY", "intelx_api_key")):
+        if os.environ.get(env):
+            setattr(s, attr, os.environ[env])
+            changed = True
 
     # first-run secret key
     if not s.secret_key:
